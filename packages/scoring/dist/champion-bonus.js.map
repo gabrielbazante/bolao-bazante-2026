@@ -1,0 +1,1 @@
+{"version":3,"file":"champion-bonus.js","sourceRoot":"","sources":["../src/champion-bonus.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,cAAc,EAAE,MAAM,SAAS,CAAC;AAEzC,MAAM,UAAU,aAAa,CAAC,KAAe,EAAE,cAAsB;IACnE,OAAO,KAAK,CAAC,QAAQ,CAAC,cAAc,CAAC,CAAC,CAAC,CAAC,cAAc,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC"}
