@@ -5,6 +5,7 @@
   "framework": "nextjs",
   "outputDirectory": "apps/web/.next",
   "crons": [
-    { "path": "/api/cron/check-fixtures", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/check-fixtures", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/advance-phase", "schedule": "0 */1 * * *" }
   ]
 }
