@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm --filter @bolao/web build",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next",
+  "crons": [
+    { "path": "/api/cron/check-fixtures", "schedule": "*/15 * * * *" }
+  ]
+}
