@@ -17,6 +17,12 @@ importers:
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.2.16)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@bolao/scoring':
+        specifier: workspace:^
+        version: link:../../packages/scoring
+      '@bolao/wc-api':
+        specifier: workspace:^
+        version: link:../../packages/wc-api
       '@supabase/ssr':
         specifier: ^0.10.3
         version: 0.10.3(@supabase/supabase-js@2.106.2)
@@ -92,6 +98,15 @@ importers:
         version: 5.9.3
 
   packages/scoring:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))
+
+  packages/wc-api:
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -4682,7 +4697,7 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 22.19.19
 
   '@types/statuses@2.0.6': {}
 
