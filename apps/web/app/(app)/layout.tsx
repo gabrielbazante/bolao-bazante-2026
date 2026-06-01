@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { TabBar } from "@/components/tab-bar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -25,5 +26,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/onboarding");
   }
 
-  return <main className="min-h-screen bg-background">{children}</main>;
+  const { data: liveFixtures } = await supabase
+    .from("fixtures").select("id").eq("status", "live").limit(1);
+  const liveActive = (liveFixtures?.length ?? 0) > 0;
+
+  return (
+    <main className="min-h-screen bg-background pb-16">
+      {children}
+      <TabBar isAdmin={!!profile?.is_admin} liveActive={liveActive} />
+    </main>
+  );
 }
