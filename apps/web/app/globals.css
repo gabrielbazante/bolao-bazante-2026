@@ -24,3 +24,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.dark {
+  --color-primary: #00ff88;
+  --color-accent: #00ff88;
+  --color-bg: #0a0e1a;
+}
