@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchStandings } from "@bolao/wc-api";
 import { resolveSource } from "@/lib/advance-phase";
 import { championBonus } from "@bolao/scoring";
+import { notifyAllApproved } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,10 @@ export async function GET(req: Request) {
     await admin.from("phases").update({
       status: "open", opens_at: new Date().toISOString(), closes_at: closesAt,
     }).eq("code", nextCode);
+    await notifyAllApproved(
+      `Nova fase liberada: ${nextPhase.name}`,
+      `Você tem até ${new Date(closesAt).toLocaleString("pt-BR")} pra palpitar.`,
+    );
   }
 
   return NextResponse.json({ opened: nextCode });
