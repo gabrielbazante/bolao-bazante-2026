@@ -1,0 +1,23 @@
+name: Cron · advance-phase
+
+# Checks if the open phase is fully scored; if so, opens the next phase
+# (or scores champion picks if it was the final).
+# Hourly is plenty — phase transitions happen ~once a week.
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron/advance-phase
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -f -X GET "$APP_URL/api/cron/advance-phase" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 60

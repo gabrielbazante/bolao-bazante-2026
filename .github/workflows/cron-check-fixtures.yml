@@ -1,0 +1,22 @@
+name: Cron · check-fixtures
+
+# Polls openfootball and scores any finished matches.
+# Every 15 minutes. GitHub Actions cron can lag 5–20 min during peak times — fine for our use case.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # allow manual trigger from the Actions tab
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron/check-fixtures
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -f -X GET "$APP_URL/api/cron/check-fixtures" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 60
