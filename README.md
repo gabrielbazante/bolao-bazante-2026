@@ -16,7 +16,7 @@ cd apps/web && node_modules/.bin/next dev
 
 - `apps/web` — Next.js app (UI + API routes + cron)
 - `packages/scoring` — pura, regra de pontuação (TDD, 22 testes)
-- `packages/wc-api` — wrapper API-Football
+- `packages/wc-api` — wrapper API-Football (legacy; no longer used by web app)
 - `supabase/migrations/` — schema migrations (0001..0008)
 - `supabase/seed/` — 48 seleções + 104 jogos da Copa 2026
 - `docs/superpowers/{specs,plans}/` — design + plano de implementação
@@ -27,7 +27,7 @@ cd apps/web && node_modules/.bin/next dev
 2. Aplicar migrations: `pnpm dlx supabase db push`
 3. Subir seed (uma vez): `pnpm --filter @bolao/seed run`
 4. Deploy Vercel: `pnpm dlx vercel deploy --prod`
-5. Configurar env vars no Vercel (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, API_FOOTBALL_KEY, CRON_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_SUBJECT)
+5. Configurar env vars no Vercel (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_SUBJECT)
 6. Após primeiro signup, promover-se a admin via SQL:
    ```sql
    update public.profiles set is_admin = true, approved_at = now()
