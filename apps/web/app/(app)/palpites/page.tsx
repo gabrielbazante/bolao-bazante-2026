@@ -128,7 +128,7 @@ export default async function PalpitesPage() {
 
         {/* Random fill — only shows if there are unfilled fixtures */}
         {filledCount < totalCount && (
-          <form action={fillRandomBets}>
+          <form action={async () => { "use server"; await fillRandomBets(); }}>
             <button
               type="submit"
               className="btn-3d btn-3d-dark flex w-full items-center justify-center gap-2"
