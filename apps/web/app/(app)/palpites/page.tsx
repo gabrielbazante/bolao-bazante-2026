@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { BetCardPro } from "@/components/ui-pro/bet-card-pro";
 import { TopBar } from "@/components/ui-pro/top-bar";
-import { Clock, Trophy, Dices } from "lucide-react";
-import { fillRandomBets } from "./actions";
+import { Clock, Trophy } from "lucide-react";
+import { RandomFillButton } from "./random-fill-button";
 
 export default async function PalpitesPage() {
   const supabase = await createClient();
@@ -128,18 +128,7 @@ export default async function PalpitesPage() {
 
         {/* Random fill — only shows if there are unfilled fixtures */}
         {filledCount < totalCount && (
-          <form action={async () => { "use server"; await fillRandomBets(); }}>
-            <button
-              type="submit"
-              className="btn-3d btn-3d-dark flex w-full items-center justify-center gap-2"
-            >
-              <Dices size={18} />
-              Gerar palpites aleatórios ({totalCount - filledCount} vazios)
-            </button>
-            <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-              Placares ponderados pela distribuição real de Copas do Mundo. Só preenche os vazios.
-            </p>
-          </form>
+          <RandomFillButton emptyCount={totalCount - filledCount} />
         )}
 
         {/* Groups */}
