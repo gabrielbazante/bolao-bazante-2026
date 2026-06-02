@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { setManualResult } from "./actions";
-import { Button } from "@/components/ui/button";
+import { Save } from "lucide-react";
 
 type Props = {
   fixtureId: number;
@@ -29,25 +29,62 @@ export function ManualResultForm({ fixtureId, homeLabel, awayLabel }: Props) {
     setSaving(false);
   }
 
-  const inp = "w-12 border rounded px-2 py-1 text-center text-sm";
+  const inputCls =
+    "input-depth w-12 h-9 text-center text-base font-display text-primary px-1";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 mt-2">
-      <span className="text-xs text-muted-foreground w-full">FT: {homeLabel}</span>
-      <input type="number" min={0} placeholder="0" value={homeFt}
-        onChange={e => setHomeFt(e.target.value)} className={inp} required />
-      <span className="text-xs">×</span>
-      <input type="number" min={0} placeholder="0" value={awayFt}
-        onChange={e => setAwayFt(e.target.value)} className={inp} required />
+    <form
+      onSubmit={handleSubmit}
+      className="mt-3 flex flex-wrap items-center gap-2"
+    >
+      <span className="text-xs font-semibold text-muted-foreground w-full">
+        FT: {homeLabel}
+      </span>
+      <input
+        type="number"
+        min={0}
+        placeholder="0"
+        value={homeFt}
+        onChange={(e) => setHomeFt(e.target.value)}
+        className={inputCls}
+        required
+      />
+      <span className="text-sm text-muted-foreground">×</span>
+      <input
+        type="number"
+        min={0}
+        placeholder="0"
+        value={awayFt}
+        onChange={(e) => setAwayFt(e.target.value)}
+        className={inputCls}
+        required
+      />
       <span className="text-xs text-muted-foreground">ET:</span>
-      <input type="number" min={0} placeholder="-" value={homeEt}
-        onChange={e => setHomeEt(e.target.value)} className={inp} />
-      <span className="text-xs">×</span>
-      <input type="number" min={0} placeholder="-" value={awayEt}
-        onChange={e => setAwayEt(e.target.value)} className={inp} />
-      <Button size="sm" type="submit" disabled={saving}>
+      <input
+        type="number"
+        min={0}
+        placeholder="-"
+        value={homeEt}
+        onChange={(e) => setHomeEt(e.target.value)}
+        className={inputCls}
+      />
+      <span className="text-sm text-muted-foreground">×</span>
+      <input
+        type="number"
+        min={0}
+        placeholder="-"
+        value={awayEt}
+        onChange={(e) => setAwayEt(e.target.value)}
+        className={inputCls}
+      />
+      <button
+        type="submit"
+        disabled={saving}
+        className="btn-3d btn-3d-primary px-4 py-2 text-xs"
+      >
+        <Save size={12} />
         {saving ? "Salvando…" : "Salvar"}
-      </Button>
+      </button>
     </form>
   );
 }

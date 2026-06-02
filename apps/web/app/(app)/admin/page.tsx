@@ -1,15 +1,32 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { approveUser, rejectUser } from "./actions";
-import { Button } from "@/components/ui/button";
 import { ManualResultForm } from "./manual-result-form";
+import { TopBar } from "@/components/ui-pro/top-bar";
+import { CheckCircle, XCircle, ClipboardList } from "lucide-react";
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data: me } = await supabase
-    .from("profiles").select("is_admin").eq("id", user!.id).single();
+    .from("profiles")
+    .select("is_admin, full_name")
+    .eq("id", user!.id)
+    .single();
+
   if (!me?.is_admin) redirect("/");
+
+  const name = me?.full_name ?? "";
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s: string) => s[0])
+    .join("")
+    .toUpperCase() || "?";
 
   const { data: pending } = await supabase
     .from("profiles")
@@ -17,52 +34,163 @@ export default async function AdminPage() {
     .is("approved_at", null)
     .order("created_at", { ascending: true });
 
-  const { data: late } = await supabase.from("fixtures")
-    .select("id, kickoff_at, home:home_team_id(name_pt), away:away_team_id(name_pt)")
+  const { data: late } = await supabase
+    .from("fixtures")
+    .select(
+      "id, kickoff_at, home:home_team_id(name_pt), away:away_team_id(name_pt)"
+    )
     .neq("status", "finished")
     .lt("kickoff_at", new Date().toISOString())
     .order("kickoff_at", { ascending: false })
     .limit(10);
 
   return (
-    <div className="p-4 max-w-2xl mx-auto space-y-4">
-      <h1 className="text-2xl font-bold">Admin · Aprovações pendentes</h1>
-      {pending?.length === 0 && <p className="text-muted-foreground">Nada pendente.</p>}
-      <ul className="space-y-2">
-        {pending?.map((p) => (
-          <li key={p.id} className="rounded-xl border p-3 flex items-center gap-3">
-            <div className="flex-1">
-              <p className="font-semibold">{p.full_name}</p>
-              <p className="text-xs text-muted-foreground">{p.email}</p>
-            </div>
-            <form action={approveUser.bind(null, p.id)}>
-              <Button size="sm">Aprovar</Button>
-            </form>
-            <form action={rejectUser.bind(null, p.id)}>
-              <Button size="sm" variant="destructive">Rejeitar</Button>
-            </form>
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-col">
+      <TopBar title="Admin" userInitials={initials} />
 
-      <h2 className="text-xl font-bold pt-4">Resultados manuais</h2>
-      <p className="text-sm text-muted-foreground">Jogos passados sem resultado registrado.</p>
-      {(!late || late.length === 0) && <p className="text-muted-foreground">Nenhum jogo pendente.</p>}
-      <ul className="space-y-2">
-        {late?.map((f) => {
-          const home = (f.home as any)?.name_pt ?? "?";
-          const away = (f.away as any)?.name_pt ?? "?";
-          return (
-            <li key={f.id} className="rounded-xl border p-3">
-              <p className="font-semibold text-sm">{home} × {away}</p>
-              <p className="text-xs text-muted-foreground">
-                {new Date(f.kickoff_at).toLocaleString("pt-BR")}
+      <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-6">
+        {/* Approvals section */}
+        <div>
+          <h2 className="mb-3 flex items-center gap-2 text-base font-extrabold text-foreground">
+            <ClipboardList size={18} />
+            Aprovações pendentes
+          </h2>
+
+          {pending?.length === 0 ? (
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl bg-card py-10 text-center"
+              style={{
+                boxShadow:
+                  "0 4px 16px -4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)",
+                border: "1px solid rgba(0,0,0,.05)",
+              }}
+            >
+              <CheckCircle size={36} className="text-green-500" />
+              <div>
+                <p className="font-bold text-foreground">Tudo aprovado!</p>
+                <p className="text-sm text-muted-foreground">
+                  Nenhum participante aguardando aprovação.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {pending?.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center gap-3 rounded-2xl bg-card p-4"
+                  style={{
+                    boxShadow:
+                      "0 4px 16px -4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)",
+                    border: "1px solid rgba(0,0,0,.05)",
+                  }}
+                >
+                  {/* Initials */}
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #003d7a 0%, #006633 100%)",
+                    }}
+                  >
+                    {(p.full_name ?? "?")
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((s: string) => s[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate font-semibold text-foreground">
+                      {p.full_name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {p.email}
+                    </p>
+                  </div>
+
+                  <form action={approveUser.bind(null, p.id)}>
+                    <button
+                      type="submit"
+                      className="btn-3d btn-3d-primary px-4 py-2 text-xs"
+                    >
+                      <CheckCircle size={12} />
+                      Aprovar
+                    </button>
+                  </form>
+                  <form action={rejectUser.bind(null, p.id)}>
+                    <button
+                      type="submit"
+                      className="btn-3d btn-3d-destructive px-4 py-2 text-xs"
+                    >
+                      <XCircle size={12} />
+                      Rejeitar
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Manual results section */}
+        <div>
+          <h2 className="mb-3 text-base font-extrabold text-foreground">
+            Resultados manuais
+          </h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Jogos passados sem resultado registrado.
+          </p>
+
+          {(!late || late.length === 0) ? (
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl bg-card py-8 text-center"
+              style={{
+                boxShadow:
+                  "0 4px 16px -4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)",
+                border: "1px solid rgba(0,0,0,.05)",
+              }}
+            >
+              <CheckCircle size={28} className="text-green-500" />
+              <p className="text-sm font-bold text-foreground">
+                Nenhum resultado pendente.
               </p>
-              <ManualResultForm fixtureId={f.id} homeLabel={home} awayLabel={away} />
-            </li>
-          );
-        })}
-      </ul>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {late?.map((f) => {
+                const home = (f.home as any)?.name_pt ?? "?";
+                const away = (f.away as any)?.name_pt ?? "?";
+                return (
+                  <li
+                    key={f.id}
+                    className="rounded-2xl bg-card p-4"
+                    style={{
+                      boxShadow:
+                        "0 4px 16px -4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)",
+                      border: "1px solid rgba(0,0,0,.05)",
+                    }}
+                  >
+                    <p className="font-semibold text-sm text-foreground">
+                      {home} × {away}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(f.kickoff_at).toLocaleString("pt-BR")}
+                    </p>
+                    <ManualResultForm
+                      fixtureId={f.id}
+                      homeLabel={home}
+                      awayLabel={away}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

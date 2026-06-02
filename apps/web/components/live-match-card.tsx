@@ -20,13 +20,31 @@ type Props = {
 };
 
 function tone(bet: Bet, homeNow: number, awayNow: number) {
-  const winnerNow = homeNow > awayNow ? "h" : homeNow < awayNow ? "a" : "d";
-  const winnerBet = bet.home_score > bet.away_score ? "h"
-                  : bet.home_score < bet.away_score ? "a" : "d";
+  const winnerNow =
+    homeNow > awayNow ? "h" : homeNow < awayNow ? "a" : "d";
+  const winnerBet =
+    bet.home_score > bet.away_score
+      ? "h"
+      : bet.home_score < bet.away_score
+      ? "a"
+      : "d";
   if (bet.home_score === homeNow && bet.away_score === awayNow)
-    return "bg-emerald-100 text-emerald-700";
-  if (winnerNow === winnerBet) return "bg-amber-100 text-amber-800";
-  return "bg-red-100 text-red-700";
+    return {
+      background: "#dcfce7",
+      color: "#166534",
+      border: "1px solid #86efac",
+    };
+  if (winnerNow === winnerBet)
+    return {
+      background: "#fef3c7",
+      color: "#92400e",
+      border: "1px solid #fcd34d",
+    };
+  return {
+    background: "#fee2e2",
+    color: "#991b1b",
+    border: "1px solid #fca5a5",
+  };
 }
 
 export function LiveMatchCard({ fixture }: Props) {
@@ -37,41 +55,102 @@ export function LiveMatchCard({ fixture }: Props) {
   useEffect(() => {
     const supabase = createClient();
     const load = async () => {
-      const { data } = await supabase.from("bets")
-        .select("user_id, home_score, away_score, profile:profiles(full_name, avatar_url)")
+      const { data } = await supabase
+        .from("bets")
+        .select(
+          "user_id, home_score, away_score, profile:profiles(full_name, avatar_url)"
+        )
         .eq("fixture_id", fixture.id);
       setBets((data ?? []) as any);
     };
     load();
-    const ch = supabase.channel(`live-bets-${fixture.id}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "fixtures", filter: `id=eq.${fixture.id}` },
-        load)
+    const ch = supabase
+      .channel(`live-bets-${fixture.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "fixtures",
+          filter: `id=eq.${fixture.id}`,
+        },
+        load
+      )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [fixture.id]);
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-3">
+    <div
+      className="overflow-hidden rounded-2xl bg-card"
+      style={{
+        boxShadow:
+          "0 4px 16px -4px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06)",
+        border: "1px solid rgba(0,0,0,.05)",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-4 py-4 text-white"
+        style={{
+          background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+          boxShadow: "inset 0 -1px 0 rgba(0,0,0,.1)",
+        }}
+      >
         <div className="flex items-center justify-between">
-          <span className="font-bold text-sm">{fixture.home.flag_emoji} {fixture.home.name_pt}</span>
-          <span className="text-2xl font-black">{homeNow} - {awayNow}</span>
-          <span className="font-bold text-sm">{fixture.away.name_pt} {fixture.away.flag_emoji}</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl">{fixture.home.flag_emoji}</span>
+            <span className="text-xs font-bold">{fixture.home.name_pt}</span>
+          </div>
+
+          <div className="flex flex-col items-center">
+            {/* Live indicator */}
+            <div className="mb-1 flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 rounded-full bg-white"
+                style={{
+                  animation: "pulse 1s infinite",
+                  boxShadow: "0 0 8px rgba(255,255,255,.8)",
+                }}
+              />
+              <span className="text-[9px] font-bold uppercase tracking-widest opacity-90">
+                Ao Vivo
+              </span>
+            </div>
+            <span className="font-display text-5xl leading-none">
+              {homeNow} - {awayNow}
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl">{fixture.away.flag_emoji}</span>
+            <span className="text-xs font-bold">{fixture.away.name_pt}</span>
+          </div>
         </div>
       </div>
-      <ul className="p-3 space-y-2">
-        {bets.map(b => (
-          <li key={b.user_id} className="flex items-center gap-2">
-            <span className="text-sm flex-1 font-medium">{b.profile.full_name}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded ${tone(b, homeNow, awayNow)}`}>
+
+      {/* Bets list */}
+      <ul className="divide-y divide-border p-3">
+        {bets.map((b) => (
+          <li key={b.user_id} className="flex items-center gap-2 py-2">
+            <span className="flex-1 text-sm font-semibold text-foreground">
+              {b.profile.full_name}
+            </span>
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+              style={tone(b, homeNow, awayNow)}
+            >
               {b.home_score} × {b.away_score}
             </span>
           </li>
         ))}
-        {bets.length === 0 && <li className="text-xs text-muted-foreground text-center">
-          Nenhum palpite registrado pra esse jogo.
-        </li>}
+        {bets.length === 0 && (
+          <li className="py-3 text-center text-xs text-muted-foreground">
+            Nenhum palpite registrado pra esse jogo.
+          </li>
+        )}
       </ul>
     </div>
   );
