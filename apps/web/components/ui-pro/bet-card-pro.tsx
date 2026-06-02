@@ -20,8 +20,10 @@ export function BetCardPro({
   const [home, setHome] = useState<number | "">(initialHome ?? "");
   const [away, setAway] = useState<number | "">(initialAway ?? "");
   const [saved, setSaved] = useState(initialHome != null);
+  const [cleared, setCleared] = useState(false);
   const [pending, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (home === "" || away === "" || locked) return;
@@ -31,6 +33,7 @@ export function BetCardPro({
         start(async () => {
           await saveBet(fixture.id, Number(home), Number(away));
           setSaved(true);
+          setCleared(false);
         }),
       800
     );
@@ -114,20 +117,22 @@ export function BetCardPro({
         {dateStr}
       </p>
 
-      {/* Save status + clear */}
+      {/* Status line — clear button + save indicator */}
       <div className="mt-1 flex items-center justify-between gap-1 h-5">
-        {/* Clear button — only visible when there's something to clear */}
         {(saved || home !== "" || away !== "") && !locked ? (
           <button
             type="button"
             disabled={pending}
             onClick={() => {
               if (timer.current) clearTimeout(timer.current);
+              if (clearedTimer.current) clearTimeout(clearedTimer.current);
               setHome("");
               setAway("");
               setSaved(false);
               start(async () => {
                 await clearBet(fixture.id);
+                setCleared(true);
+                clearedTimer.current = setTimeout(() => setCleared(false), 2000);
               });
             }}
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
@@ -137,9 +142,11 @@ export function BetCardPro({
           </button>
         ) : <span />}
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 transition-opacity duration-300">
           {pending && (
-            <span className="text-[10px] text-muted-foreground">Salvando…</span>
+            <span className="text-[10px] text-muted-foreground">
+              {cleared || (home === "" && away === "") ? "Limpando…" : "Salvando…"}
+            </span>
           )}
           {!pending && saved && (
             <>
@@ -151,6 +158,19 @@ export function BetCardPro({
               </span>
               <span className="text-[10px] font-semibold" style={{ color: "#006633" }}>
                 Salvo
+              </span>
+            </>
+          )}
+          {!pending && cleared && !saved && (
+            <>
+              <span
+                className="flex h-4 w-4 items-center justify-center rounded-full text-white"
+                style={{ background: "#64748b" }}
+              >
+                <X size={9} />
+              </span>
+              <span className="text-[10px] font-semibold text-slate-500">
+                Limpo
               </span>
             </>
           )}
