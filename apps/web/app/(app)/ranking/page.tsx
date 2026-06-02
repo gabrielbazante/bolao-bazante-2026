@@ -11,7 +11,7 @@ export default async function RankingPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, avatar_url")
     .eq("id", user!.id)
     .single();
 
@@ -28,7 +28,7 @@ export default async function RankingPage() {
 
   return (
     <div className="flex flex-col">
-      <TopBar title="Ranking" userInitials={initials} />
+      <TopBar title="Ranking" userInitials={initials} avatarUrl={profile?.avatar_url} />
 
       <div className="mx-auto w-full max-w-md space-y-3 p-4 pb-6">
         <div className="flex items-center justify-end">

@@ -13,7 +13,7 @@ export default async function PalpitesPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, avatar_url")
     .eq("id", user!.id)
     .single();
 
@@ -35,7 +35,7 @@ export default async function PalpitesPage() {
   if (!openPhase) {
     return (
       <div className="flex flex-col">
-        <TopBar title="Palpites" userInitials={initials} />
+        <TopBar title="Palpites" userInitials={initials} avatarUrl={profile?.avatar_url} />
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
           <div
             className="depth-stat flex h-20 w-20 items-center justify-center rounded-full bg-card"
@@ -87,6 +87,7 @@ export default async function PalpitesPage() {
       <TopBar
         title={`Palpites · ${openPhase.name}`}
         userInitials={initials}
+        avatarUrl={profile?.avatar_url}
       />
 
       <div className="mx-auto w-full max-w-md space-y-3 p-4 pb-6">

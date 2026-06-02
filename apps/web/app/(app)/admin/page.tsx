@@ -13,7 +13,7 @@ export default async function AdminPage() {
 
   const { data: me } = await supabase
     .from("profiles")
-    .select("is_admin, full_name")
+    .select("is_admin, full_name, avatar_url")
     .eq("id", user!.id)
     .single();
 
@@ -46,7 +46,7 @@ export default async function AdminPage() {
 
   return (
     <div className="flex flex-col">
-      <TopBar title="Admin" userInitials={initials} />
+      <TopBar title="Admin" userInitials={initials} avatarUrl={me?.avatar_url} />
 
       <div className="mx-auto w-full max-w-2xl space-y-5 p-4 pb-6">
         {/* Approvals section */}

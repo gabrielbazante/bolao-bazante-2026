@@ -15,7 +15,7 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, total_points")
+    .select("full_name, total_points, avatar_url")
     .eq("id", user!.id)
     .single();
 
@@ -79,7 +79,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col">
-      <TopBar title="Bolão Bazante 2026" userInitials={initials} />
+      <TopBar title="Bolão Bazante 2026" userInitials={initials} avatarUrl={profile?.avatar_url} />
 
       <div className="mx-auto w-full max-w-md space-y-4 p-4 pb-6">
         {/* Prize card */}

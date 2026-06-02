@@ -6,10 +6,11 @@ import Image from "next/image";
 interface TopBarProps {
   title: string;
   userInitials?: string;
+  avatarUrl?: string | null;
   variant?: "default" | "live";
 }
 
-export function TopBar({ title, userInitials = "?", variant = "default" }: TopBarProps) {
+export function TopBar({ title, userInitials = "?", avatarUrl, variant = "default" }: TopBarProps) {
   const { theme, setTheme } = useTheme();
 
   const gradientClass =
@@ -52,15 +53,25 @@ export function TopBar({ title, userInitials = "?", variant = "default" }: TopBa
       </span>
 
       {/* Avatar */}
-      <div
-        className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black text-[#003d7a]"
-        style={{
-          background: "linear-gradient(135deg, #ffd700, #ff9500)",
-          boxShadow: "0 2px 8px rgba(0,0,0,.3), inset 0 1px 2px rgba(255,255,255,.4)",
-        }}
-      >
-        {userInitials}
-      </div>
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatarUrl}
+          alt=""
+          className="relative z-10 h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/40"
+          style={{ boxShadow: "0 2px 8px rgba(0,0,0,.3)" }}
+        />
+      ) : (
+        <div
+          className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black text-[#003d7a]"
+          style={{
+            background: "linear-gradient(135deg, #ffd700, #ff9500)",
+            boxShadow: "0 2px 8px rgba(0,0,0,.3), inset 0 1px 2px rgba(255,255,255,.4)",
+          }}
+        >
+          {userInitials}
+        </div>
+      )}
 
       {/* Theme toggle */}
       <button

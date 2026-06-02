@@ -12,7 +12,7 @@ export default async function LivePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, avatar_url")
     .eq("id", user!.id)
     .single();
 
@@ -35,7 +35,7 @@ export default async function LivePage() {
   if (!live?.length) {
     return (
       <div className="flex flex-col">
-        <TopBar title="Ao Vivo" userInitials={initials} variant="live" />
+        <TopBar title="Ao Vivo" userInitials={initials} avatarUrl={profile?.avatar_url} variant="live" />
         <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
           <div
             className="flex h-20 w-20 items-center justify-center rounded-full bg-card"
@@ -59,7 +59,7 @@ export default async function LivePage() {
 
   return (
     <div className="flex flex-col">
-      <TopBar title="Ao Vivo" userInitials={initials} variant="live" />
+      <TopBar title="Ao Vivo" userInitials={initials} avatarUrl={profile?.avatar_url} variant="live" />
 
       <div className="mx-auto w-full max-w-md space-y-4 p-4 pb-6">
         {/* Live count banner */}

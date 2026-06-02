@@ -26,7 +26,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col">
-      <TopBar title="Perfil" userInitials={initials} />
+      <TopBar title="Perfil" userInitials={initials} avatarUrl={profile?.avatar_url} />
 
       <div className="mx-auto w-full max-w-md space-y-4 p-4 pb-6">
         {/* Profile card */}
