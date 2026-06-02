@@ -1,6 +1,7 @@
 "use client";
 import { useTheme } from "next-themes";
 import { Bell, Moon, Sun } from "lucide-react";
+import Image from "next/image";
 
 interface TopBarProps {
   title: string;
@@ -34,6 +35,20 @@ export function TopBar({ title, userInitials = "?", variant = "default" }: TopBa
         }}
       />
 
+      {/* Brand logo */}
+      <Image
+        src="/logo.png"
+        alt=""
+        width={32}
+        height={32}
+        className="relative z-10 shrink-0 rounded-full"
+      />
+
+      {/* Title */}
+      <span className="relative z-10 flex-1 text-sm font-extrabold tracking-wide">
+        {title}
+      </span>
+
       {/* Avatar */}
       <div
         className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black text-[#003d7a]"
@@ -44,11 +59,6 @@ export function TopBar({ title, userInitials = "?", variant = "default" }: TopBa
       >
         {userInitials}
       </div>
-
-      {/* Title */}
-      <span className="relative z-10 flex-1 text-sm font-extrabold tracking-wide">
-        {title}
-      </span>
 
       {/* Theme toggle */}
       <button

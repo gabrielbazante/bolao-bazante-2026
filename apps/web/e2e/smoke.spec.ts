@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 
 test("login page loads", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByText("Bolão Bazante")).toBeVisible();
-  await expect(page.getByText("COPA DO MUNDO")).toBeVisible();
+  await expect(page.getByAltText("Bolão da Família Bazante 2026")).toBeVisible();
+  await expect(page.getByRole("button", { name: /entrar/i })).toBeVisible();
 });
 
 test("signup form has all required fields", async ({ page }) => {

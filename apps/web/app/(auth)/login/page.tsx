@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { loginAction } from "./actions";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -10,21 +11,15 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Logo block */}
-      <div className="text-center">
-        <h1
-          className="font-display leading-none text-4xl tracking-widest"
-          style={{ color: "#ffd700", textShadow: "0 4px 12px rgba(255,215,0,.3)" }}
-        >
-          Bolão Bazante
-        </h1>
-        <div
-          className="font-display leading-none text-6xl tracking-[4px] text-white"
-        >
-          2026
-        </div>
-        <p className="mt-2 text-xs font-semibold uppercase tracking-[3px] text-white/70">
-          ⚽ COPA DO MUNDO ⚽
-        </p>
+      <div className="flex flex-col items-center gap-2">
+        <Image
+          src="/logo.png"
+          alt="Bolão da Família Bazante 2026"
+          width={200}
+          height={200}
+          priority
+          className="drop-shadow-[0_8px_24px_rgba(255,215,0,0.25)]"
+        />
       </div>
 
       {/* Form glass card */}

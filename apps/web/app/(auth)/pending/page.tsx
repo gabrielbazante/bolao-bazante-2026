@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PixBox } from "@/components/pix-box";
+import Image from "next/image";
 
 export default async function PendingPage() {
   const supabase = await createClient();
@@ -35,16 +36,8 @@ export default async function PendingPage() {
   return (
     <div className="flex flex-col gap-5">
       {/* Logo */}
-      <div className="text-center">
-        <h1
-          className="font-display leading-none text-4xl tracking-widest"
-          style={{ color: "#ffd700", textShadow: "0 4px 12px rgba(255,215,0,.3)" }}
-        >
-          Bolão Bazante
-        </h1>
-        <div className="font-display leading-none text-5xl tracking-[4px] text-white">
-          2026
-        </div>
+      <div className="flex justify-center">
+        <Image src="/logo.png" alt="Bolão" width={120} height={120} />
       </div>
 
       {/* Main card */}
