@@ -78,25 +78,32 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes ball-bounce {
-  0%, 100% { transform: translate(-50%, 0) rotate(0deg); }
-  40%      { transform: translate(-50%, 0) rotate(180deg); }
-  50%      { transform: translate(-50%, 4.5rem) scaleY(0.85) scaleX(1.1) rotate(225deg); }
-  60%      { transform: translate(-50%, 0) rotate(270deg); }
+@keyframes ball-jump {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(5.5rem); }
+}
+
+@keyframes ball-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 @keyframes ball-shadow {
-  0%, 100% { opacity: 0.15; transform: translateX(-50%) scaleX(0.6); }
-  50%      { opacity: 0.45; transform: translateX(-50%) scaleX(1.1); }
+  0%, 100% { opacity: 0.18; transform: translateX(-50%) scaleX(0.55); }
+  50%      { opacity: 0.5;  transform: translateX(-50%) scaleX(1.15); }
 }
 
-.ball-bounce {
-  animation: ball-bounce 0.85s cubic-bezier(.5,.05,.5,.95) infinite;
+.ball-jump {
+  animation: ball-jump 1.4s cubic-bezier(.5,.05,.5,.95) infinite;
   filter: drop-shadow(0 4px 6px rgba(0,0,0,.2));
 }
 
+.ball-spin {
+  animation: ball-spin 1.4s linear infinite;
+}
+
 .ball-shadow {
-  animation: ball-shadow 0.85s cubic-bezier(.5,.05,.5,.95) infinite;
+  animation: ball-shadow 1.4s cubic-bezier(.5,.05,.5,.95) infinite;
 }
 
 /* === 3D BUTTONS === */
