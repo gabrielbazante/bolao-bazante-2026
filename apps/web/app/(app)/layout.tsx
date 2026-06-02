@@ -30,10 +30,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .from("fixtures").select("id").eq("status", "live").limit(1);
   const liveActive = (liveFixtures?.length ?? 0) > 0;
 
+  // Hide tabbar on onboarding — it's a blocking flow and the sticky "Confirmar"
+  // button would clash with the tabbar otherwise.
+  const isOnboarding = pathname.startsWith("/onboarding");
+
   return (
-    <main className="min-h-screen bg-background pb-20">
+    <main className={`min-h-screen bg-background ${isOnboarding ? "" : "pb-20"}`}>
       {children}
-      <TabBar isAdmin={!!profile?.is_admin} liveActive={liveActive} />
+      {!isOnboarding && (
+        <TabBar isAdmin={!!profile?.is_admin} liveActive={liveActive} />
+      )}
     </main>
   );
 }
