@@ -29,6 +29,7 @@ export async function clearBet(fixtureId: number) {
     .eq("user_id", user.id)
     .eq("fixture_id", fixtureId);
   if (error) throw error;
+  revalidatePath("/palpites");
   return { ok: true };
 }
 
