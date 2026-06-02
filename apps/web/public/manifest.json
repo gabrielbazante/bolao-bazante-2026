@@ -1,12 +1,14 @@
 {
-  "name": "Bolão Bazante 2026",
+  "name": "Bolão da Família Bazante 2026",
   "short_name": "Bolão Bazante",
+  "description": "Bolão da Copa do Mundo 2026 — paixão que nos une.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#003d7a",
   "theme_color": "#003d7a",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

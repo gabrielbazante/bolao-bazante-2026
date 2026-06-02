@@ -18,8 +18,8 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Bolão Bazante 2026",
-  description: "PWA para bolão de Copa do Mundo",
+  title: "Bolão da Família Bazante 2026",
+  description: "Bolão da Copa do Mundo 2026 — paixão que nos une.",
 };
 
 export default function RootLayout({
@@ -36,6 +36,7 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#003d7a" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-full flex flex-col">
         <SWRegistrar />
