@@ -61,11 +61,16 @@ export default async function HomePage() {
     myBet = bet ?? null;
   }
 
-  // Ranking position
-  const { data: rankingRows } = await supabase.from("ranking").select("id");
-  const myRankPos = rankingRows
-    ? rankingRows.findIndex((r: { id: string }) => r.id === user!.id) + 1
-    : 0;
+  // Ranking position + my total points (from the ranking view, not profiles)
+  const { data: rankingRows } = await supabase
+    .from("ranking")
+    .select("id, total_points");
+  const myRankIdx = rankingRows
+    ? rankingRows.findIndex((r: { id: string }) => r.id === user!.id)
+    : -1;
+  const myRankPos = myRankIdx >= 0 ? myRankIdx + 1 : 0;
+  const myTotalPoints =
+    myRankIdx >= 0 ? (rankingRows![myRankIdx] as any).total_points ?? 0 : 0;
 
   // User initials
   const name = profile?.full_name ?? "";
@@ -95,7 +100,7 @@ export default async function HomePage() {
             label="Sua pos."
           />
           <StatCard
-            value={profile?.total_points != null ? String(profile.total_points) : "—"}
+            value={String(myTotalPoints)}
             label="Pontos"
           />
           <StatCard value="—" label="Exatos" />
