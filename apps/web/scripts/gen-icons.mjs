@@ -17,7 +17,7 @@ for (const t of targets) {
   await sharp(SRC)
     .resize(t.size, t.size, {
       fit: "contain",
-      background: { r: 0, g: 61, b: 122, alpha: 1 },
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
     .png()
     .toFile(t.out);
