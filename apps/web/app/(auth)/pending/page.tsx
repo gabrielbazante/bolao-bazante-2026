@@ -37,7 +37,7 @@ export default async function PendingPage() {
     <div className="flex flex-col gap-5">
       {/* Logo */}
       <div className="flex justify-center">
-        <Image src="/logo.png" alt="Bolão" width={120} height={120} />
+        <Image src="/logo.png" alt="Bolão" width={120} height={120} unoptimized style={{ background: "transparent", width: 120, height: "auto" }} />
       </div>
 
       {/* Main card */}

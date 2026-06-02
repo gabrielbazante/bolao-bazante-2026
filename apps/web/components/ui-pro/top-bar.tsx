@@ -41,7 +41,9 @@ export function TopBar({ title, userInitials = "?", variant = "default" }: TopBa
         alt=""
         width={32}
         height={32}
-        className="relative z-10 shrink-0 rounded-full"
+        unoptimized
+        style={{ background: "transparent" }}
+        className="relative z-10 shrink-0"
       />
 
       {/* Title */}

@@ -38,6 +38,8 @@ export default function SignupPage() {
           width={200}
           height={200}
           priority
+          unoptimized
+          style={{ background: "transparent", width: 200, height: "auto" }}
           className="drop-shadow-[0_8px_24px_rgba(255,215,0,0.25)]"
         />
       </div>
