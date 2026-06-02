@@ -101,7 +101,7 @@ export async function GET(req: Request) {
 
   const earliest = nextFixtures?.[0];
   if (earliest) {
-    const closesAt = new Date(new Date(earliest.kickoff_at).getTime() - 5*60*1000).toISOString();
+    const closesAt = new Date(new Date(earliest.kickoff_at).getTime() - 60*60*1000).toISOString();
     await admin.from("phases").update({
       status: "open", opens_at: new Date().toISOString(), closes_at: closesAt,
     }).eq("code", nextCode);

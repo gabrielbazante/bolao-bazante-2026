@@ -3,6 +3,7 @@ import { BetCardPro } from "@/components/ui-pro/bet-card-pro";
 import { TopBar } from "@/components/ui-pro/top-bar";
 import { Clock, Trophy } from "lucide-react";
 import { RandomFillButton } from "./random-fill-button";
+import { SubmitBetsButton } from "./submit-bets-button";
 
 export default async function PalpitesPage() {
   const supabase = await createClient();
@@ -160,6 +161,18 @@ export default async function PalpitesPage() {
             </div>
           </details>
         ))}
+
+        {/* Submit / confirmation — only shows after at least one bet is filled */}
+        {filledCount > 0 && fixtures?.[0]?.kickoff_at && (
+          <div className="pt-2">
+            <SubmitBetsButton
+              filledCount={filledCount}
+              totalCount={totalCount}
+              firstKickoffISO={fixtures[0].kickoff_at}
+              phaseName={openPhase.name}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
