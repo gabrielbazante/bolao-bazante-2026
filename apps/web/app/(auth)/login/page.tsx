@@ -11,17 +11,23 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Logo block */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-3">
         <Image
           src="/logo.png"
           alt="Bolão da Família Bazante 2026"
-          width={200}
-          height={200}
+          width={280}
+          height={280}
           priority
           unoptimized
-          style={{ background: "transparent", width: 200, height: "auto" }}
-          className="drop-shadow-[0_8px_24px_rgba(255,215,0,0.25)]"
+          style={{ background: "transparent", width: 280, height: "auto" }}
+          className="drop-shadow-[0_10px_32px_rgba(255,215,0,0.3)]"
         />
+        <p
+          className="font-display text-[18px] text-white/85"
+          style={{ letterSpacing: "0.4em", textIndent: "0.4em" }}
+        >
+          ⚽ COPA DO MUNDO ⚽
+        </p>
       </div>
 
       {/* Form glass card */}

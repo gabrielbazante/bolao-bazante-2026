@@ -35,13 +35,19 @@ export default function SignupPage() {
         <Image
           src="/logo.png"
           alt="Bolão da Família Bazante 2026"
-          width={200}
-          height={200}
+          width={240}
+          height={240}
           priority
           unoptimized
-          style={{ background: "transparent", width: 200, height: "auto" }}
-          className="drop-shadow-[0_8px_24px_rgba(255,215,0,0.25)]"
+          style={{ background: "transparent", width: 240, height: "auto" }}
+          className="drop-shadow-[0_10px_32px_rgba(255,215,0,0.3)]"
         />
+        <p
+          className="font-display text-[16px] text-white/85"
+          style={{ letterSpacing: "0.4em", textIndent: "0.4em" }}
+        >
+          ⚽ COPA DO MUNDO ⚽
+        </p>
       </div>
 
       {/* Form glass card */}
