@@ -1,7 +1,7 @@
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8"
+      className="relative flex min-h-screen items-start justify-center overflow-hidden px-4 pt-12 pb-8"
       style={{
         background:
           "radial-gradient(ellipse at top, #003d7a 0%, #001f3f 50%, #000 100%)",
