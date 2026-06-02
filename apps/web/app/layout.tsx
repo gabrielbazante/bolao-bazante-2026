@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import { SWRegistrar } from "@/components/sw-registrar";
@@ -20,6 +20,13 @@ const bebasNeue = Bebas_Neue({
 export const metadata: Metadata = {
   title: "Bolão da Família Bazante 2026",
   description: "Bolão da Copa do Mundo 2026 — paixão que nos une.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#003d7a",
 };
 
 export default function RootLayout({

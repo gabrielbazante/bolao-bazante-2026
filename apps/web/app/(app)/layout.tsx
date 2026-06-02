@@ -35,7 +35,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isOnboarding = pathname.startsWith("/onboarding");
 
   return (
-    <main className={`min-h-screen bg-background ${isOnboarding ? "" : "pb-20"}`}>
+    <main
+      className="min-h-screen bg-background"
+      style={
+        isOnboarding
+          ? undefined
+          : { paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }
+      }
+    >
       {children}
       {!isOnboarding && (
         <TabBar isAdmin={!!profile?.is_admin} liveActive={liveActive} />

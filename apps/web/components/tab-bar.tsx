@@ -41,13 +41,14 @@ export function TabBar({
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 flex justify-around border-t px-1 pb-safe pt-2"
+      className="fixed bottom-0 inset-x-0 z-50 flex justify-around border-t px-1 pt-2"
       style={{
         background: "rgba(255,255,255,.85)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderColor: "rgba(0,0,0,.06)",
         boxShadow: "0 -4px 20px rgba(0,0,0,.08)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
       }}
     >
       {tabs.map((t) => {
