@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const liveActive = (liveFixtures?.length ?? 0) > 0;
 
   return (
-    <main className="min-h-screen bg-background pb-16">
+    <main className="min-h-screen bg-background pb-20">
       {children}
       <TabBar isAdmin={!!profile?.is_admin} liveActive={liveActive} />
     </main>
