@@ -19,6 +19,19 @@ export async function saveBet(fixtureId: number, home: number, away: number) {
   return { ok: true };
 }
 
+export async function clearBet(fixtureId: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authed");
+  const { error } = await supabase
+    .from("bets")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("fixture_id", fixtureId);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export async function fillRandomBets() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

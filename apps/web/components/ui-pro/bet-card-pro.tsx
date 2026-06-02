@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition, useEffect, useRef } from "react";
-import { saveBet } from "@/app/(app)/palpites/actions";
-import { Check } from "lucide-react";
+import { saveBet, clearBet } from "@/app/(app)/palpites/actions";
+import { Check, X } from "lucide-react";
 
 type Team = { id: number; name_pt: string; flag_emoji: string };
 type Fixture = { id: number; kickoff_at: string; home: Team; away: Team };
@@ -114,24 +114,47 @@ export function BetCardPro({
         {dateStr}
       </p>
 
-      {/* Save status */}
-      <div className="mt-1 flex items-center justify-end gap-1 h-4">
-        {pending && (
-          <span className="text-[10px] text-muted-foreground">Salvando…</span>
-        )}
-        {!pending && saved && (
-          <>
-            <span
-              className="flex h-4 w-4 items-center justify-center rounded-full text-white"
-              style={{ background: "#006633" }}
-            >
-              <Check size={9} />
-            </span>
-            <span className="text-[10px] font-semibold" style={{ color: "#006633" }}>
-              Salvo
-            </span>
-          </>
-        )}
+      {/* Save status + clear */}
+      <div className="mt-1 flex items-center justify-between gap-1 h-5">
+        {/* Clear button — only visible when there's something to clear */}
+        {(saved || home !== "" || away !== "") && !locked ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              if (timer.current) clearTimeout(timer.current);
+              setHome("");
+              setAway("");
+              setSaved(false);
+              start(async () => {
+                await clearBet(fixture.id);
+              });
+            }}
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          >
+            <X size={11} />
+            Limpar
+          </button>
+        ) : <span />}
+
+        <div className="flex items-center gap-1">
+          {pending && (
+            <span className="text-[10px] text-muted-foreground">Salvando…</span>
+          )}
+          {!pending && saved && (
+            <>
+              <span
+                className="flex h-4 w-4 items-center justify-center rounded-full text-white"
+                style={{ background: "#006633" }}
+              >
+                <Check size={9} />
+              </span>
+              <span className="text-[10px] font-semibold" style={{ color: "#006633" }}>
+                Salvo
+              </span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
