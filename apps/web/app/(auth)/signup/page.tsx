@@ -138,11 +138,11 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-xs text-white/70">
+        <p className="mt-8 text-center text-sm text-white/80">
           Já tem conta?{" "}
           <Link
             href="/login"
-            className="font-bold transition-opacity hover:opacity-80"
+            className="font-extrabold underline underline-offset-4 transition-opacity hover:opacity-80"
             style={{ color: "#ffd700" }}
           >
             Entrar
