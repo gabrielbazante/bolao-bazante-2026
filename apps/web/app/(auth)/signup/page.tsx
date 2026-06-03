@@ -89,16 +89,23 @@ export default function SignupPage() {
             <option value="O" style={{ background: "#001f3f" }}>Outro</option>
           </select>
 
-          <input
-            name="birth_date"
-            type="date"
-            required
-            placeholder="Data de nascimento"
-            className={inputClass}
-            style={inputStyle}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-          />
+          <label className="flex flex-col gap-1">
+            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-white/65">
+              Data de nascimento
+            </span>
+            <input
+              name="birth_date"
+              type="date"
+              required
+              className={inputClass}
+              style={{
+                ...inputStyle,
+                colorScheme: "dark", // makes the native picker readable on dark bg in iOS/Chrome
+              }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+          </label>
 
           <input
             name="email"
