@@ -1,11 +1,14 @@
 name: Cron · check-fixtures
 
-# Polls openfootball and scores any finished matches.
-# Every 15 minutes. GitHub Actions cron can lag 5–20 min during peak times — fine for our use case.
+# Polls wc2026api.com and scores any finished matches.
+# Every 5 minutes. The handler uses a smart-poll window (kickoff ±window):
+# if no fixture is active it returns immediately without calling the API,
+# so running this frequently costs ~0 quota on idle days and ~36 req/day
+# during active match days — well within the Pro tier (500 req/day).
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}   # allow manual trigger from the Actions tab
 
 jobs:
