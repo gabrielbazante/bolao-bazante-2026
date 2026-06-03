@@ -28,6 +28,15 @@ export default function SignupPage() {
     e.target.style.boxShadow = "none";
   };
 
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <label className="flex w-full flex-col gap-1">
+      <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-white/65">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {/* Logo block */}
@@ -65,70 +74,70 @@ export default function SignupPage() {
             })
           }
         >
-          <input
-            name="full_name"
-            required
-            placeholder="Nome completo"
-            className={inputClass}
-            style={inputStyle}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-          />
+          <Field label="Nome completo">
+            <input
+              name="full_name"
+              required
+              className={inputClass}
+              style={inputStyle}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+          </Field>
 
-          <select
-            name="sex"
-            required
-            className={inputClass}
-            style={{ ...inputStyle, appearance: "none" }}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-          >
-            <option value="" style={{ background: "#001f3f" }}>Sexo</option>
-            <option value="M" style={{ background: "#001f3f" }}>Masculino</option>
-            <option value="F" style={{ background: "#001f3f" }}>Feminino</option>
-            <option value="O" style={{ background: "#001f3f" }}>Outro</option>
-          </select>
+          <Field label="Sexo">
+            <select
+              name="sex"
+              required
+              defaultValue=""
+              className={inputClass}
+              style={{ ...inputStyle, appearance: "none" }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            >
+              <option value="" disabled style={{ background: "#001f3f" }}>Selecione…</option>
+              <option value="M" style={{ background: "#001f3f" }}>Masculino</option>
+              <option value="F" style={{ background: "#001f3f" }}>Feminino</option>
+              <option value="O" style={{ background: "#001f3f" }}>Outro</option>
+            </select>
+          </Field>
 
-          <label className="flex flex-col gap-1">
-            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-white/65">
-              Data de nascimento
-            </span>
+          <Field label="Data de nascimento">
             <input
               name="birth_date"
               type="date"
               required
               className={inputClass}
-              style={{
-                ...inputStyle,
-                colorScheme: "dark", // makes the native picker readable on dark bg in iOS/Chrome
-              }}
+              style={{ ...inputStyle, colorScheme: "dark" }}
               onFocus={handleFocus}
               onBlur={handleBlur}
             />
-          </label>
+          </Field>
 
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="E-mail"
-            className={inputClass}
-            style={inputStyle}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-          />
+          <Field label="E-mail">
+            <input
+              name="email"
+              type="email"
+              required
+              className={inputClass}
+              style={inputStyle}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+          </Field>
 
-          <input
-            name="password"
-            type="password"
-            minLength={8}
-            required
-            placeholder="Senha (mín. 8 caracteres)"
-            className={inputClass}
-            style={inputStyle}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-          />
+          <Field label="Senha (mín. 8 caracteres)">
+            <input
+              name="password"
+              type="password"
+              minLength={8}
+              required
+              className={inputClass}
+              style={inputStyle}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+            />
+          </Field>
 
           {error && (
             <p className="rounded-lg bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-300">
