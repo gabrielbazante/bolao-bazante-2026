@@ -108,7 +108,18 @@ export default function SignupPage() {
               type="date"
               required
               className={inputClass}
-              style={{ ...inputStyle, colorScheme: "dark" }}
+              style={{
+                ...inputStyle,
+                colorScheme: "dark",
+                // iOS Safari hacks: native date input forces a min-width and adds its
+                // own appearance, breaking w-full inside the form. These reset it.
+                WebkitAppearance: "none",
+                appearance: "none",
+                minWidth: 0,
+                maxWidth: "100%",
+                display: "block",
+                boxSizing: "border-box",
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
             />
