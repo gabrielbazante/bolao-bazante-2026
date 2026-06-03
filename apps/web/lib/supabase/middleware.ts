@@ -1,8 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+/**
+ * Refreshes the Supabase session and forwards request headers to downstream RSCs.
+ * Pass `extraRequestHeaders` to inject custom request headers (e.g. x-pathname)
+ * that should be readable by `headers()` in server components.
+ */
+export async function updateSession(
+  request: NextRequest,
+  extraRequestHeaders?: Record<string, string>,
+) {
+  const reqHeaders = new Headers(request.headers);
+  if (extraRequestHeaders) {
+    for (const [k, v] of Object.entries(extraRequestHeaders)) {
+      reqHeaders.set(k, v);
+    }
+  }
+
+  let response = NextResponse.next({ request: { headers: reqHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +29,7 @@ export async function updateSession(request: NextRequest) {
           toSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: reqHeaders } });
           toSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );

@@ -22,7 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (cpCount ?? 0) < 2 && groupPhase?.status === "open";
 
   const pathname = (await headers()).get("x-pathname") ?? "";
-  if (onboardingNeeded && !pathname.startsWith("/onboarding")) {
+  // Only redirect if we KNOW the pathname AND it's not the onboarding route already.
+  // Without the pathname guard, a missing/empty header would cause an infinite loop
+  // (redirect /onboarding → /onboarding → ...).
+  if (onboardingNeeded && pathname && !pathname.startsWith("/onboarding")) {
     redirect("/onboarding");
   }
 
