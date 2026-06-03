@@ -22,16 +22,12 @@ export function TabBar({
   const tabs: TabDef[] = [
     { href: "/", icon: <Home size={20} />, label: "Home" },
     { href: "/palpites", icon: <Volleyball size={20} />, label: "Palpites" },
-    ...(liveActive
-      ? [
-          {
-            href: "/live",
-            icon: <Tv size={20} />,
-            label: "Ao Vivo",
-            live: true,
-          },
-        ]
-      : []),
+    {
+      href: "/live",
+      icon: <Tv size={20} />,
+      label: "Ao Vivo",
+      live: liveActive, // pulse dot only when there's an active match
+    },
     { href: "/ranking", icon: <Trophy size={20} />, label: "Ranking" },
     { href: "/profile", icon: <User size={20} />, label: "Perfil" },
     ...(isAdmin

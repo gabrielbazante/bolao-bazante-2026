@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { EnablePush } from "@/components/enable-push";
 import { TopBar } from "@/components/ui-pro/top-bar";
+import { LogOut } from "lucide-react";
+import { signOut } from "./actions";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -58,6 +60,17 @@ export default async function ProfilePage() {
           </h3>
           <EnablePush />
         </div>
+
+        {/* Sign out */}
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="btn-3d btn-3d-destructive flex w-full items-center justify-center gap-2"
+          >
+            <LogOut size={18} />
+            Sair da conta
+          </button>
+        </form>
       </div>
     </div>
   );
