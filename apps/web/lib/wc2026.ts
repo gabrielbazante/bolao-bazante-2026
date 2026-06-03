@@ -76,9 +76,11 @@ export function deriveScoreFields(m: Wc2026Match): {
   if (m.home_score == null || m.away_score == null) {
     return { home_score_ft: null, away_score_ft: null, home_score_et: null, away_score_et: null };
   }
-  const phase = m.phase?.toUpperCase();
-  const isExtraTimeFinal = phase === "AET" || phase === "PEN";
-  if (isExtraTimeFinal) {
+  const phase = (m.phase ?? "").toUpperCase();
+  // Match any phase indicating extra time or penalties was involved:
+  // observed values include AET, PEN, FT_PEN, AET_PEN. Substring is robust.
+  const hadExtraTimeOrPens = phase.includes("AET") || phase.includes("PEN");
+  if (hadExtraTimeOrPens) {
     // Final-after-ET. We don't have the 90-min score separately.
     // Set ET fields; leave FT null so scoring lib falls back to ET as the "official" score.
     return {

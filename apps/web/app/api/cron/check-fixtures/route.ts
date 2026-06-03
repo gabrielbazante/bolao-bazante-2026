@@ -5,8 +5,17 @@ import { calculate, type Phase } from "@bolao/scoring";
 
 export const dynamic = "force-dynamic";
 
-const FINISHED_PHASES = new Set(["FT", "AET", "PEN"]);
-const LIVE_PHASES = new Set(["LIVE", "HT", "ET"]);
+// Observed wc2026 phases: PRE, LIVE, HT, ET, FT, AET, PEN, FT_PEN, AET_PEN.
+// Treat anything containing FT/AET/PEN as finished (match is over), anything with
+// LIVE/HT/ET as in-progress.
+const FINISHED_TOKENS = ["FT", "AET", "PEN"];
+const LIVE_TOKENS = ["LIVE", "HT", "ET"];
+function isFinishedPhase(p: string) {
+  return FINISHED_TOKENS.some((t) => p.includes(t));
+}
+function isLivePhase(p: string) {
+  return !isFinishedPhase(p) && LIVE_TOKENS.some((t) => p.includes(t));
+}
 const WINDOW_PRE_MS = 5 * 60 * 1000;
 const WINDOW_POST_MS = 3 * 60 * 60 * 1000;
 
@@ -64,8 +73,8 @@ export async function GET(req: Request) {
     checked++;
 
     const phaseUpper = (m.phase ?? "").toUpperCase();
-    const isFinished = FINISHED_PHASES.has(phaseUpper);
-    const isLive = LIVE_PHASES.has(phaseUpper);
+    const isFinished = isFinishedPhase(phaseUpper);
+    const isLive = isLivePhase(phaseUpper);
 
     // Sanity guard — absurd score
     if (m.home_score != null && m.away_score != null && Math.abs(m.home_score - m.away_score) > 10) {
@@ -74,7 +83,7 @@ export async function GET(req: Request) {
     }
 
     // Log unexpected phase strings so we can investigate without guessing
-    if (phaseUpper && !FINISHED_PHASES.has(phaseUpper) && !LIVE_PHASES.has(phaseUpper) && phaseUpper !== "PRE") {
+    if (phaseUpper && !isFinished && !isLive && phaseUpper !== "PRE") {
       errors.push({ stage: "unknownPhase", fixture_id: local.id, phase: m.phase });
     }
 
