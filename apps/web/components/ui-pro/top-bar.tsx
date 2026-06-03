@@ -2,6 +2,7 @@
 import { useTheme } from "next-themes";
 import { Bell, Moon, Sun } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 interface TopBarProps {
   title: string;
@@ -82,10 +83,14 @@ export function TopBar({ title, userInitials = "?", avatarUrl, variant = "defaul
         {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 
-      {/* Bell */}
-      <div className="relative z-10 opacity-90">
+      {/* Bell → goes to profile (where push toggle lives) */}
+      <Link
+        href="/profile"
+        aria-label="Notificações / Perfil"
+        className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full opacity-90 transition-opacity hover:opacity-100"
+      >
         <Bell size={18} />
-      </div>
+      </Link>
     </div>
   );
 }
