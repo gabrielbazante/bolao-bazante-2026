@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchGroupStandings } from "@/lib/wc2026";
 import { resolveSource } from "@/lib/advance-phase";
 import { championBonus } from "@bolao/scoring";
 import { notifyAllApproved } from "@/lib/notify";
@@ -18,66 +19,31 @@ type Standing = {
   gd: number;
 };
 
-async function computeLocalStandings(admin: AdminClient): Promise<Standing[]> {
-  const { data: groupPhase } = await admin
-    .from("phases")
-    .select("id")
-    .eq("code", "group")
-    .single();
-
-  if (!groupPhase) return [];
-
-  const { data: groupFixtures } = await admin
-    .from("fixtures")
-    .select("home_team_id, away_team_id, home_score_ft, away_score_ft")
-    .eq("phase_id", groupPhase.id)
-    .not("scored_at", "is", null);
-
-  const { data: teams } = await admin.from("teams").select("id, group_code");
-
-  // Accumulate stats per team
-  const stats = new Map<number, { team_id: number; group_code: string; points: number; gf: number; ga: number; played: number }>();
-  for (const t of teams ?? []) {
-    stats.set(t.id, { team_id: t.id, group_code: t.group_code, points: 0, gf: 0, ga: 0, played: 0 });
-  }
-
-  for (const f of groupFixtures ?? []) {
-    const h = stats.get(f.home_team_id);
-    const a = stats.get(f.away_team_id);
-    if (!h || !a) continue;
-    h.gf += f.home_score_ft;
-    h.ga += f.away_score_ft;
-    a.gf += f.away_score_ft;
-    a.ga += f.home_score_ft;
-    h.played++;
-    a.played++;
-    if (f.home_score_ft > f.away_score_ft) h.points += 3;
-    else if (f.home_score_ft < f.away_score_ft) a.points += 3;
-    else { h.points += 1; a.points += 1; }
-  }
-
-  // Sort within each group by points desc, GD desc, GF desc
-  const grouped = new Map<string, Array<typeof stats extends Map<number, infer V> ? V & { gd: number } : never>>();
-  for (const s of stats.values()) {
-    const list = grouped.get(s.group_code) ?? [];
-    list.push({ ...s, gd: s.gf - s.ga });
-    grouped.set(s.group_code, list);
-  }
-
-  const standings: Standing[] = [];
-  for (const [gc, list] of grouped) {
-    list.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-    list.forEach((row, i) => {
-      standings.push({
-        group_code: gc,
-        position: i + 1,
-        team_id: row.team_id,
+async function fetchAllStandings(admin: AdminClient): Promise<Standing[]> {
+  const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+  const { data: teams } = await admin.from("teams").select("id, fifa_code");
+  const codeToLocalId = new Map((teams ?? []).map((t: { id: number; fifa_code: string }) => [t.fifa_code, t.id]));
+  const allStandings: Standing[] = [];
+  for (const g of groups) {
+    let api;
+    try {
+      api = await fetchGroupStandings(g);
+    } catch {
+      continue;
+    }
+    api.forEach((row, idx) => {
+      const teamId = codeToLocalId.get(row.team_code);
+      if (!teamId) return;
+      allStandings.push({
+        group_code: g,
+        position: idx + 1,
+        team_id: teamId as number,
         points: row.points,
-        gd: row.gd,
+        gd: row.goal_difference,
       });
     });
   }
-  return standings;
+  return allStandings;
 }
 
 export async function GET(req: Request) {
@@ -86,7 +52,7 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
   const { data: phases } = await admin.from("phases").select("*").order("order_idx");
-  const current = phases?.find(p => p.status === "open");
+  const current = phases?.find((p: { status: string }) => p.status === "open");
   if (!current) return NextResponse.json({ note: "no open phase" });
 
   // Every fixture in current phase finished?
@@ -127,10 +93,15 @@ export async function GET(req: Request) {
   const nextIdx = PHASE_ORDER.indexOf(current.code as (typeof PHASE_ORDER)[number]) + 1;
   const nextCode = PHASE_ORDER[nextIdx];
   if (!nextCode) return NextResponse.json({ note: "no more phases" });
-  const nextPhase = phases!.find(p => p.code === nextCode)!;
+  const nextPhase = phases!.find((p: { code: string }) => p.code === nextCode)!;
 
-  // Compute standings locally from the fixtures table
-  const standings = await computeLocalStandings(admin);
+  // Early return if we're already past group phase and next isn't r32
+  // (saves 12 API calls when we're deep in knockout rounds)
+  // Standings are only needed when advancing from group → r32
+  let standings: Standing[] = [];
+  if (current.code === "group") {
+    standings = await fetchAllStandings(admin);
+  }
 
   // Build winners map from past knockout fixtures
   const { data: pastFixtures } = await admin
@@ -139,7 +110,7 @@ export async function GET(req: Request) {
     .not("scored_at", "is", null);
   const winners = new Map<string, number>();
   for (const pf of pastFixtures ?? []) {
-    const phaseRow = phases!.find(p => p.id === pf.phase_id)!;
+    const phaseRow = phases!.find((p: { id: number }) => p.id === pf.phase_id)!;
     if (phaseRow.code === "group") continue;
     const phaseLabel = phaseRow.code.toUpperCase();
     const { data: siblings } = await admin
@@ -147,7 +118,7 @@ export async function GET(req: Request) {
       .select("id")
       .eq("phase_id", pf.phase_id)
       .order("kickoff_at");
-    const ordinal = (siblings ?? []).findIndex(s => s.id === pf.id) + 1;
+    const ordinal = (siblings ?? []).findIndex((s: { id: number }) => s.id === pf.id) + 1;
     const home = pf.home_score_et ?? pf.home_score_ft ?? 0;
     const away = pf.away_score_et ?? pf.away_score_ft ?? 0;
     if (home === away) continue;
