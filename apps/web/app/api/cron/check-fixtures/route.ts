@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchWorldCupData, parseKickoff } from "@/lib/openfootball";
-import { resolvePtName } from "@/lib/team-aliases";
+import { fetchAllMatches, deriveScoreFields, type Wc2026Match } from "@/lib/wc2026";
 import { calculate, type Phase } from "@bolao/scoring";
 
 export const dynamic = "force-dynamic";
+
+const FINISHED_PHASES = new Set(["FT", "AET", "PEN"]);
+const LIVE_PHASES = new Set(["LIVE", "HT", "ET"]);
+const WINDOW_PRE_MS = 5 * 60 * 1000;
+const WINDOW_POST_MS = 3 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   const expected = `Bearer ${process.env.CRON_SECRET}`;
@@ -14,168 +18,112 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
   const errors: unknown[] = [];
+
+  // Smart-poll: skip wc2026 call if no fixture is within the active window
+  const now = Date.now();
+  const { data: candidates } = await admin
+    .from("fixtures")
+    .select("id, kickoff_at, status, scored_at, phase_id, home_team_id, away_team_id")
+    .gte("kickoff_at", new Date(now - WINDOW_POST_MS).toISOString())
+    .lte("kickoff_at", new Date(now + WINDOW_PRE_MS).toISOString());
+
+  if (!candidates || candidates.length === 0) {
+    await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0 });
+    return NextResponse.json({ checked: 0, scored: 0, skipped: "no fixture in window" });
+  }
+
+  // Fetch all matches (1 API call covers everything)
+  let apiMatches: Wc2026Match[];
+  try {
+    apiMatches = await fetchAllMatches();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    errors.push({ stage: "fetchAllMatches", message: msg });
+    await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+
+  // Build lookup: local teams by fifa_code → id
+  const { data: teams } = await admin.from("teams").select("id, fifa_code");
+  const codeToLocalId = new Map<string, number>();
+  for (const t of teams ?? []) codeToLocalId.set(t.fifa_code, t.id);
+
   let checked = 0;
   let scored = 0;
+  let updated = 0;
 
-  // Fetch openfootball source
-  let ofData;
-  try {
-    ofData = await fetchWorldCupData();
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
-    errors.push({ stage: "fetchWorldCupData", message });
-    await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
-    return NextResponse.json({ error: "openfootball fetch failed" }, { status: 502 });
-  }
+  for (const m of apiMatches) {
+    const homeId = codeToLocalId.get(m.home_team_code);
+    const awayId = codeToLocalId.get(m.away_team_code);
+    if (!homeId || !awayId) continue;
 
-  const matches = ofData.matches ?? [];
-  checked = matches.length;
+    const local = candidates.find(
+      (c) => c.home_team_id === homeId && c.away_team_id === awayId,
+    );
+    if (!local) continue; // not in our smart-poll window
+    checked++;
 
-  const now = Date.now();
-  const twoDays = 1000 * 60 * 60 * 48;
+    const phaseUpper = (m.phase ?? "").toUpperCase();
+    const isFinished = FINISHED_PHASES.has(phaseUpper);
+    const isLive = LIVE_PHASES.has(phaseUpper);
 
-  // Pre-load all teams so we can resolve PT name → id
-  const { data: teams } = await admin.from("teams").select("id, name_pt");
-  const teamByPtName = new Map<string, number>();
-  for (const t of teams ?? []) {
-    teamByPtName.set(t.name_pt.toLowerCase(), t.id);
-  }
-
-  for (const m of matches) {
-    const kickoff = parseKickoff(m.date, m.time);
-    const kickoffMs = kickoff.getTime();
-
-    if (!m.score?.ft) {
-      // No final score yet — update status if past kickoff
-      if (kickoffMs < now) {
-        // Kick off has passed: mark live (only if not already finished)
-        const team1Pt = resolvePtName(m.team1);
-        const team2Pt = resolvePtName(m.team2);
-        const homeId = teamByPtName.get(team1Pt.toLowerCase());
-        const awayId = teamByPtName.get(team2Pt.toLowerCase());
-        if (homeId && awayId) {
-          await admin
-            .from("fixtures")
-            .update({ status: "live" })
-            .eq("home_team_id", homeId)
-            .eq("away_team_id", awayId)
-            .neq("status", "finished")
-            .gte("kickoff_at", new Date(kickoffMs - twoDays).toISOString())
-            .lte("kickoff_at", new Date(kickoffMs + twoDays).toISOString());
-        }
-      } else {
-        // Future match that somehow got marked live — flip back
-        const team1Pt = resolvePtName(m.team1);
-        const team2Pt = resolvePtName(m.team2);
-        const homeId = teamByPtName.get(team1Pt.toLowerCase());
-        const awayId = teamByPtName.get(team2Pt.toLowerCase());
-        if (homeId && awayId) {
-          await admin
-            .from("fixtures")
-            .update({ status: "scheduled" })
-            .eq("home_team_id", homeId)
-            .eq("away_team_id", awayId)
-            .eq("status", "live")
-            .gte("kickoff_at", new Date(kickoffMs - twoDays).toISOString())
-            .lte("kickoff_at", new Date(kickoffMs + twoDays).toISOString());
-        }
-      }
+    // Sanity guard — absurd score
+    if (m.home_score != null && m.away_score != null && Math.abs(m.home_score - m.away_score) > 10) {
+      errors.push({ stage: "absurdScore", fixture_id: local.id, raw: m });
       continue;
     }
 
-    // Match has a final score
-    const ft = m.score.ft;
-    const et = m.score.et ?? null;
-
-    // Use ET if present, else FT (ignore penalties per bolão rules)
-    const finalHome = et ? et[0] : ft[0];
-    const finalAway = et ? et[1] : ft[1];
-
-    // Sanity: absurd score guard
-    if (Math.abs(finalHome - finalAway) > 10) {
-      errors.push({
-        stage: "absurdScore",
-        team1: m.team1,
-        team2: m.team2,
-        score: m.score,
-      });
-      continue;
+    // Log unexpected phase strings so we can investigate without guessing
+    if (phaseUpper && !FINISHED_PHASES.has(phaseUpper) && !LIVE_PHASES.has(phaseUpper) && phaseUpper !== "PRE") {
+      errors.push({ stage: "unknownPhase", fixture_id: local.id, phase: m.phase });
     }
 
-    const team1Pt = resolvePtName(m.team1);
-    const team2Pt = resolvePtName(m.team2);
-    const homeId = teamByPtName.get(team1Pt.toLowerCase());
-    const awayId = teamByPtName.get(team2Pt.toLowerCase());
+    const scoreFields = deriveScoreFields(m);
+    const newStatus = isFinished ? "finished" : isLive ? "live" : "scheduled";
 
-    if (!homeId || !awayId) {
-      errors.push({
-        stage: "teamLookup",
-        team1: m.team1,
-        team2: m.team2,
-        resolved: { team1Pt, team2Pt },
-      });
-      continue;
-    }
-
-    // Find local fixture by teams + kickoff date ±2 days
-    const { data: localFixtures } = await admin
+    // Update the fixture row with current scores + status (always — even mid-match for Ao Vivo)
+    await admin
       .from("fixtures")
-      .select("id, phase_id, status, scored_at")
-      .eq("home_team_id", homeId)
-      .eq("away_team_id", awayId)
-      .gte("kickoff_at", new Date(kickoffMs - twoDays).toISOString())
-      .lte("kickoff_at", new Date(kickoffMs + twoDays).toISOString());
+      .update({
+        status: newStatus,
+        home_score_ft: scoreFields.home_score_ft,
+        away_score_ft: scoreFields.away_score_ft,
+        home_score_et: scoreFields.home_score_et,
+        away_score_et: scoreFields.away_score_et,
+      })
+      .eq("id", local.id);
+    updated++;
 
-    const local = localFixtures?.[0];
-    if (!local) continue;
+    // Score bets only on first transition to finished
+    if (isFinished && !local.scored_at) {
+      const { data: phaseRow } = await admin
+        .from("phases").select("code").eq("id", local.phase_id).single();
+      if (!phaseRow) continue;
+      const phase = phaseRow.code as Phase;
 
-    // Already scored — skip
-    if (local.scored_at) continue;
+      const { data: bets } = await admin
+        .from("bets").select("id, home_score, away_score").eq("fixture_id", local.id);
 
-    // Update fixture scores and status
-    await admin.from("fixtures").update({
-      home_score_ft: ft[0],
-      away_score_ft: ft[1],
-      home_score_et: et ? et[0] : null,
-      away_score_et: et ? et[1] : null,
-      status: "finished",
-    }).eq("id", local.id);
-
-    // Score all bets for this fixture
-    const { data: phaseRow } = await admin
-      .from("phases")
-      .select("code")
-      .eq("id", local.phase_id)
-      .single();
-    const phase = phaseRow!.code as Phase;
-
-    const { data: bets } = await admin
-      .from("bets")
-      .select("id, home_score, away_score")
-      .eq("fixture_id", local.id);
-
-    for (const b of bets ?? []) {
-      const pts = calculate(
-        { home: b.home_score, away: b.away_score },
-        {
-          home_ft: ft[0],
-          away_ft: ft[1],
-          home_et: et ? et[0] : null,
-          away_et: et ? et[1] : null,
-        },
-        phase,
-      );
-      await admin.from("bets").update({
-        points: pts,
-        scored_at: new Date().toISOString(),
-      }).eq("id", b.id);
+      for (const b of bets ?? []) {
+        const pts = calculate(
+          { home: b.home_score, away: b.away_score },
+          {
+            home_ft: scoreFields.home_score_ft ?? scoreFields.home_score_et ?? 0,
+            away_ft: scoreFields.away_score_ft ?? scoreFields.away_score_et ?? 0,
+            home_et: scoreFields.home_score_et,
+            away_et: scoreFields.away_score_et,
+          },
+          phase,
+        );
+        await admin
+          .from("bets")
+          .update({ points: pts, scored_at: new Date().toISOString() })
+          .eq("id", b.id);
+      }
+      await admin
+        .from("fixtures").update({ scored_at: new Date().toISOString() }).eq("id", local.id);
+      scored++;
     }
-
-    await admin.from("fixtures").update({
-      scored_at: new Date().toISOString(),
-    }).eq("id", local.id);
-
-    scored++;
   }
 
   await admin.from("cron_runs").insert({
@@ -183,6 +131,5 @@ export async function GET(req: Request) {
     fixtures_scored: scored,
     errors: errors.length ? errors : null,
   });
-
-  return NextResponse.json({ checked, scored, errors: errors.length });
+  return NextResponse.json({ checked, scored, updated, errors: errors.length });
 }
