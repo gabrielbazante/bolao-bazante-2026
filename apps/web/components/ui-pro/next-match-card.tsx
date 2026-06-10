@@ -15,7 +15,7 @@ interface NextMatchCardProps {
 
 export function NextMatchCard({ fixture, myBet }: NextMatchCardProps) {
   const kickoff = new Date(fixture.kickoff_at);
-  const dateStr = kickoff.toLocaleString("pt-BR", {
+  const dateStr = kickoff.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo",
     dateStyle: "short",
     timeStyle: "short",
   });

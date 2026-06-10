@@ -158,7 +158,7 @@ export async function GET(req: Request) {
     }).eq("code", nextCode);
     await notifyAllApproved(
       `Nova fase liberada: ${nextPhase.name}`,
-      `Você tem até ${new Date(closesAt).toLocaleString("pt-BR")} pra palpitar.`,
+      `Você tem até ${new Date(closesAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} pra palpitar.`,
     );
   }
 

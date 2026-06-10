@@ -45,7 +45,7 @@ export function FixtureBetCard({
         </div>
       </div>
       <p className="text-center text-[10px] text-muted-foreground mt-2">
-        {new Date(fixture.kickoff_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+        {new Date(fixture.kickoff_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
       </p>
       <p className="text-right text-[10px] text-emerald-700 h-3">
         {pending ? "Salvando…" : saved ? "✓ Salvo" : ""}

@@ -106,7 +106,7 @@ export default async function PalpitesPage() {
             <div className="mb-2 flex items-center gap-2">
               <Clock size={13} className="text-amber-700" />
               <p className="text-xs font-bold text-amber-800">
-                Trava {closesAt.toLocaleString("pt-BR")}
+                Trava {closesAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
               </p>
             </div>
           )}

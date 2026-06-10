@@ -177,7 +177,7 @@ export default async function AdminPage() {
                       {home} × {away}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(f.kickoff_at).toLocaleString("pt-BR")}
+                      {new Date(f.kickoff_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                     </p>
                     <ManualResultForm
                       fixtureId={f.id}

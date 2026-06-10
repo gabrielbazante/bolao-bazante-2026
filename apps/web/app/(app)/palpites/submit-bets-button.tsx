@@ -26,7 +26,7 @@ export function SubmitBetsButton({
   const [open, setOpen] = useState(false);
 
   const lockTime = new Date(new Date(firstKickoffISO).getTime() - 10 * 60 * 1000);
-  const lockFormatted = lockTime.toLocaleString("pt-BR", {
+  const lockFormatted = lockTime.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "long",
     hour: "2-digit",

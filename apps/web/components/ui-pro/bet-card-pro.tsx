@@ -40,7 +40,7 @@ export function BetCardPro({
   }, [home, away, locked, fixture.id]);
 
   const kickoff = new Date(fixture.kickoff_at);
-  const dateStr = kickoff.toLocaleString("pt-BR", {
+  const dateStr = kickoff.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo",
     dateStyle: "short",
     timeStyle: "short",
   });
