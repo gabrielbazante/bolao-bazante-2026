@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PixBox } from "@/components/pix-box";
+import { PendingWatcher } from "@/components/pending-watcher";
 import Image from "next/image";
 
 export default async function PendingPage() {
@@ -35,6 +36,9 @@ export default async function PendingPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Realtime watcher — redirects to / the moment admin sets approved_at */}
+      <PendingWatcher userId={user.id} />
+
       {/* Logo */}
       <div className="flex justify-center">
         <Image src="/logo.png" alt="Bolão" width={120} height={120} unoptimized style={{ background: "transparent", width: 120, height: "auto" }} />
