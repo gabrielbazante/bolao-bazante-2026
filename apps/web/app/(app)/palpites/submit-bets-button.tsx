@@ -25,7 +25,7 @@ export function SubmitBetsButton({
 }: SubmitBetsButtonProps) {
   const [open, setOpen] = useState(false);
 
-  const lockTime = new Date(new Date(firstKickoffISO).getTime() - 60 * 60 * 1000);
+  const lockTime = new Date(new Date(firstKickoffISO).getTime() - 10 * 60 * 1000);
   const lockFormatted = lockTime.toLocaleString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -70,7 +70,7 @@ export function SubmitBetsButton({
               <span className="flex items-start gap-2 rounded-xl border-l-4 border-amber-500 bg-amber-50 p-3 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  Você pode alterar qualquer palpite até <strong>1 hora antes do
+                  Você pode alterar qualquer palpite até <strong>10 minutos antes do
                   primeiro jogo da fase</strong> ({lockFormatted}). Depois disso,
                   os palpites travam.
                 </span>
