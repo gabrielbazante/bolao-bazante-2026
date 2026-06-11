@@ -79,6 +79,7 @@ export default async function PalpitesPage() {
   }
 
   const closesAt = openPhase.closes_at ? new Date(openPhase.closes_at) : null;
+  const isLocked = !!closesAt && closesAt.getTime() <= Date.now();
   const filledCount = bets?.length ?? 0;
   const totalCount = fixtures?.length ?? 0;
   const progress = totalCount ? (filledCount / totalCount) * 100 : 0;
@@ -104,9 +105,11 @@ export default async function PalpitesPage() {
         >
           {closesAt && (
             <div className="mb-2 flex items-center gap-2">
-              <Clock size={13} className="text-amber-700" />
-              <p className="text-xs font-bold text-amber-800">
-                Trava {closesAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+              <Clock size={13} className={isLocked ? "text-red-700" : "text-amber-700"} />
+              <p className={`text-xs font-bold ${isLocked ? "text-red-800" : "text-amber-800"}`}>
+                {isLocked
+                  ? `Travado em ${closesAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+                  : `Trava ${closesAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
               </p>
             </div>
           )}
@@ -128,8 +131,8 @@ export default async function PalpitesPage() {
           </p>
         </div>
 
-        {/* Random fill — only shows if there are unfilled fixtures */}
-        {filledCount < totalCount && (
+        {/* Random fill — only shows if there are unfilled fixtures AND not locked */}
+        {filledCount < totalCount && !isLocked && (
           <RandomFillButton emptyCount={totalCount - filledCount} />
         )}
 
@@ -154,7 +157,7 @@ export default async function PalpitesPage() {
                     fixture={f}
                     initialHome={b?.home_score}
                     initialAway={b?.away_score}
-                    locked={false}
+                    locked={isLocked}
                   />
                 );
               })}
@@ -162,8 +165,8 @@ export default async function PalpitesPage() {
           </details>
         ))}
 
-        {/* Submit / confirmation — only shows after at least one bet is filled */}
-        {filledCount > 0 && fixtures?.[0]?.kickoff_at && (
+        {/* Submit / confirmation — only shows after at least one bet, and before lock */}
+        {filledCount > 0 && fixtures?.[0]?.kickoff_at && !isLocked && (
           <div className="pt-2">
             <SubmitBetsButton
               filledCount={filledCount}

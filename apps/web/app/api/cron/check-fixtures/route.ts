@@ -2,6 +2,79 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllMatches, deriveScoreFields, type Wc2026Match } from "@/lib/wc2026";
 import { calculate, type Phase } from "@bolao/scoring";
+import { randomBet } from "@/lib/random-bet";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * For any phase whose closes_at has passed but status is still 'open', fill in
+ * random bets (WC-historical distribution) for every approved user that has
+ * unfilled fixtures in that phase. Runs ONCE per phase per cron tick — idempotent
+ * because the existing-bets lookup filters out anything already saved.
+ */
+async function autoFillExpiredPhases(admin: AdminClient) {
+  const { data: expired } = await admin
+    .from("phases")
+    .select("id, code, closes_at")
+    .eq("status", "open")
+    .lte("closes_at", new Date().toISOString());
+
+  if (!expired || expired.length === 0) return { filled: 0, phases: 0 };
+
+  const { data: users } = await admin
+    .from("profiles")
+    .select("id")
+    .not("approved_at", "is", null);
+  if (!users || users.length === 0) return { filled: 0, phases: expired.length };
+
+  let totalFilled = 0;
+  for (const phase of expired) {
+    const { data: fixtures } = await admin
+      .from("fixtures")
+      .select("id")
+      .eq("phase_id", phase.id)
+      .not("home_team_id", "is", null)
+      .not("away_team_id", "is", null);
+    if (!fixtures || fixtures.length === 0) continue;
+
+    const fixtureIds = fixtures.map((f) => f.id);
+    const { data: existing } = await admin
+      .from("bets")
+      .select("user_id, fixture_id")
+      .in("fixture_id", fixtureIds);
+    const taken = new Set(
+      (existing ?? []).map((b) => `${b.user_id}|${b.fixture_id}`),
+    );
+
+    const toInsert: {
+      user_id: string;
+      fixture_id: number;
+      home_score: number;
+      away_score: number;
+    }[] = [];
+    for (const u of users) {
+      for (const f of fixtures) {
+        if (taken.has(`${u.id}|${f.id}`)) continue;
+        const r = randomBet();
+        toInsert.push({
+          user_id: u.id,
+          fixture_id: f.id,
+          home_score: r.home,
+          away_score: r.away,
+        });
+      }
+    }
+
+    if (toInsert.length > 0) {
+      const { error } = await admin
+        .from("bets")
+        .upsert(toInsert, { onConflict: "user_id,fixture_id" });
+      if (!error) totalFilled += toInsert.length;
+    }
+  }
+
+  return { filled: totalFilled, phases: expired.length };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +101,19 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const errors: unknown[] = [];
 
+  // Auto-fill missing bets for phases whose deadline has passed.
+  // Runs before the wc2026 poll so by the time scoring kicks in, every approved
+  // user has a complete bet sheet — nobody gets left out.
+  let autoFillSummary: { filled: number; phases: number } = { filled: 0, phases: 0 };
+  try {
+    autoFillSummary = await autoFillExpiredPhases(admin);
+  } catch (e) {
+    errors.push({
+      stage: "autoFillExpiredPhases",
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Smart-poll: skip wc2026 call if no fixture is within the active window
   const now = Date.now();
   const { data: candidates } = await admin
@@ -38,7 +124,12 @@ export async function GET(req: Request) {
 
   if (!candidates || candidates.length === 0) {
     await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0 });
-    return NextResponse.json({ checked: 0, scored: 0, skipped: "no fixture in window" });
+    return NextResponse.json({
+      checked: 0,
+      scored: 0,
+      skipped: "no fixture in window",
+      autoFilled: autoFillSummary,
+    });
   }
 
   // Fetch all matches (1 API call covers everything)
@@ -140,5 +231,11 @@ export async function GET(req: Request) {
     fixtures_scored: scored,
     errors: errors.length ? errors : null,
   });
-  return NextResponse.json({ checked, scored, updated, errors: errors.length });
+  return NextResponse.json({
+    checked,
+    scored,
+    updated,
+    errors: errors.length,
+    autoFilled: autoFillSummary,
+  });
 }
