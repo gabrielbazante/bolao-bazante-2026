@@ -165,7 +165,12 @@ export async function GET(req: Request) {
 
     const phaseUpper = (m.phase ?? "").toUpperCase();
     const isFinished = isFinishedPhase(phaseUpper);
-    const isLive = isLivePhase(phaseUpper);
+    // Fall back to time-based inference: if the API hasn't flipped to LIVE yet
+    // (lag at kickoff is common) but our kickoff_at has passed and the match
+    // isn't marked finished, treat it as live so the Ao Vivo tab lights up.
+    const kickoffMs = new Date(local.kickoff_at).getTime();
+    const inferredLive = !isFinished && kickoffMs <= Date.now();
+    const isLive = isLivePhase(phaseUpper) || inferredLive;
 
     // Sanity guard — absurd score
     if (m.home_score != null && m.away_score != null && Math.abs(m.home_score - m.away_score) > 10) {
