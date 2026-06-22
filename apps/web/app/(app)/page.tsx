@@ -78,16 +78,16 @@ export default async function HomePage() {
         })
       : { total_points: 0, exact_count: 0, hit_count: 0 };
 
-  // Últimos jogos do usuário (já pontuados)
+  // Últimos jogos do usuário, ordenados pelo momento em que foram pontuados
   const { data: recentBets } = await supabase
     .from("bets")
     .select(
-      "home_score, away_score, points, fixture:fixtures!inner(id, kickoff_at, home_score_ft, away_score_ft, home_score_et, away_score_et, scored_at, home:home_team_id(name_pt, flag_emoji), away:away_team_id(name_pt, flag_emoji))",
+      "home_score, away_score, points, scored_at, fixture:fixtures!inner(id, kickoff_at, home_score_ft, away_score_ft, home_score_et, away_score_et, scored_at, home:home_team_id(name_pt, flag_emoji), away:away_team_id(name_pt, flag_emoji))",
     )
     .eq("user_id", user!.id)
-    .not("fixture.scored_at", "is", null)
-    .order("kickoff_at", { foreignTable: "fixture", ascending: false })
-    .limit(5);
+    .not("scored_at", "is", null)
+    .order("scored_at", { ascending: false })
+    .limit(10);
 
   // User initials
   const name = profile?.full_name ?? "";
@@ -136,7 +136,7 @@ export default async function HomePage() {
           ⚽ Fazer palpites da rodada
         </Link>
 
-        {/* Resumo dos últimos jogos pontuados */}
+        {/* Resumo dos últimos jogos pontuados (ordenados por scored_at desc) */}
         {recentBets && recentBets.length > 0 && (
           <div
             className="rounded-2xl bg-card p-4"
@@ -146,9 +146,14 @@ export default async function HomePage() {
               border: "1px solid rgba(0,0,0,.05)",
             }}
           >
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Últimos resultados
-            </p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Últimos resultados
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {recentBets.length} jogo{recentBets.length === 1 ? "" : "s"}
+              </p>
+            </div>
             <ul className="space-y-2">
               {(recentBets as any[]).map((b, i) => {
                 const f = b.fixture;
@@ -161,11 +166,19 @@ export default async function HomePage() {
                   : points > 0
                     ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
                     : "bg-muted text-muted-foreground";
+                const when = new Date(f.kickoff_at).toLocaleDateString("pt-BR", {
+                  timeZone: "America/Sao_Paulo",
+                  day: "2-digit",
+                  month: "2-digit",
+                });
                 return (
                   <li
                     key={i}
                     className="flex items-center gap-2 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
                   >
+                    <span className="w-9 shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                      {when}
+                    </span>
                     <span className="flex flex-1 items-center gap-1.5 text-xs">
                       <span className="text-base leading-none">{f.home.flag_emoji}</span>
                       <span className="font-display text-base text-foreground tabular-nums">
@@ -174,13 +187,13 @@ export default async function HomePage() {
                       <span className="text-base leading-none">{f.away.flag_emoji}</span>
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      seu palpite{" "}
+                      palpite{" "}
                       <span className="font-display text-sm text-foreground tabular-nums">
                         {b.home_score}-{b.away_score}
                       </span>
                     </span>
                     <span
-                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums ${badgeClass}`}
+                      className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums ${badgeClass}`}
                     >
                       {points > 0 ? `+${points}` : "0"}
                     </span>
