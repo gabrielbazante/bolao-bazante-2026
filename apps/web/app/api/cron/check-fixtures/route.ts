@@ -166,6 +166,12 @@ export async function GET(req: Request) {
     if (!local) continue; // not in our smart-poll window
     checked++;
 
+    // Defensive: once a fixture is marked scored (by cron OR manual admin
+    // override), trust that final state and never let a lagging wc2026
+    // response overwrite it. The wc2026 API has been observed reporting
+    // stale scores for hours after the match really ended.
+    if (local.scored_at) continue;
+
     const phaseUpper = (m.phase ?? "").toUpperCase();
     const isFinished = isFinishedPhase(phaseUpper);
     // Fall back to time-based inference: if the API hasn't flipped to LIVE yet
