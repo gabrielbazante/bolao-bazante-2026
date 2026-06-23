@@ -90,7 +90,10 @@ function isLivePhase(p: string) {
   return !isFinishedPhase(p) && LIVE_TOKENS.some((t) => p.includes(t));
 }
 const WINDOW_PRE_MS = 5 * 60 * 1000;
-const WINDOW_POST_MS = 3 * 60 * 60 * 1000;
+// 6h post-kickoff covers normal matches (~2h), extra time (~2.5h), and the
+// occasional interruption / long stoppage (saw a FRA×IRQ paused & resumed,
+// total elapsed ~4h). After 6h we assume the wc2026 final state is settled.
+const WINDOW_POST_MS = 6 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   const expected = `Bearer ${process.env.CRON_SECRET}`;
