@@ -161,6 +161,18 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const errors: unknown[] = [];
 
+  // Source-independent: mark any 'scheduled' fixture whose kickoff has passed
+  // (within the last 6h) as 'live'. This keeps the Ao Vivo tab populated even
+  // when the data source (e.g. openfootball fallback) only knows about finished
+  // matches and never reports a match in-progress.
+  await admin
+    .from("fixtures")
+    .update({ status: "live" })
+    .lte("kickoff_at", new Date().toISOString())
+    .gt("kickoff_at", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+    .eq("status", "scheduled")
+    .is("scored_at", null);
+
   // Auto-fill missing bets for phases whose deadline has passed.
   // Runs before the wc2026 poll so by the time scoring kicks in, every approved
   // user has a complete bet sheet — nobody gets left out.
