@@ -7,6 +7,31 @@ import { calculate, type Phase } from "@bolao/scoring";
 import { randomBet } from "@/lib/random-bet";
 
 /**
+ * Returns true if wc2026 should be skipped this tick because it failed in
+ * COOLDOWN_FAIL_THRESHOLD consecutive runs within COOLDOWN_LOOKBACK_MS.
+ * Avoids burning quota on a known-down key.
+ */
+async function isWc2026InCooldown(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - COOLDOWN_LOOKBACK_MS).toISOString();
+  const { data: recent } = await admin
+    .from("cron_runs")
+    .select("errors")
+    .gte("ran_at", cutoff)
+    .order("ran_at", { ascending: false })
+    .limit(COOLDOWN_FAIL_THRESHOLD);
+  if (!recent || recent.length < COOLDOWN_FAIL_THRESHOLD) return false;
+  return recent.every(
+    (r) =>
+      Array.isArray(r.errors) &&
+      r.errors.some(
+        (e: { stage?: string }) => e?.stage === "fetchAllMatches",
+      ),
+  );
+}
+
+/**
  * Fallback: when wc2026 is down/disabled, fetch openfootball and convert each
  * finished match into the same shape our handler expects (Wc2026Match).
  * Live in-progress matches don't exist in openfootball — only finals — so this
@@ -147,10 +172,14 @@ function isLivePhase(p: string) {
   return !isFinishedPhase(p) && LIVE_TOKENS.some((t) => p.includes(t));
 }
 const WINDOW_PRE_MS = 5 * 60 * 1000;
-// 6h post-kickoff covers normal matches (~2h), extra time (~2.5h), and the
-// occasional interruption / long stoppage (saw a FRA×IRQ paused & resumed,
-// total elapsed ~4h). After 6h we assume the wc2026 final state is settled.
-const WINDOW_POST_MS = 6 * 60 * 60 * 1000;
+// 4h post-kickoff covers normal matches (~2h), extra time (~2.5h), and most
+// stoppages. Longer interruptions (rare) fall back to manual /admin override.
+// Trimmed from 6h to keep wc2026 quota usage low (~30% reduction).
+const WINDOW_POST_MS = 4 * 60 * 60 * 1000;
+// Cooldown: if wc2026 fetch failed in 3 consecutive recent runs, skip it for
+// 15 min to avoid wasting quota on a key that's likely still disabled.
+const COOLDOWN_LOOKBACK_MS = 15 * 60 * 1000;
+const COOLDOWN_FAIL_THRESHOLD = 3;
 
 export async function GET(req: Request) {
   const expected = `Bearer ${process.env.CRON_SECRET}`;
@@ -204,15 +233,19 @@ export async function GET(req: Request) {
     });
   }
 
-  // Fetch matches — try wc2026 first, fall back to openfootball if it fails.
-  // openfootball only has final scores (no live updates), but scoring still works.
+  // Fetch matches — try wc2026 first (unless in cooldown), fall back to
+  // openfootball if it fails. openfootball only has final scores (no live
+  // updates), but scoring still works.
   let apiMatches: Wc2026Match[];
   let dataSource: "wc2026" | "openfootball" = "wc2026";
-  try {
-    apiMatches = await fetchAllMatches();
-  } catch (wcErr) {
-    const wcMsg = wcErr instanceof Error ? wcErr.message : String(wcErr);
-    errors.push({ stage: "fetchAllMatches", message: wcMsg });
+  const cooldown = await isWc2026InCooldown(admin);
+
+  if (cooldown) {
+    // Skip wc2026 entirely this tick to preserve quota
+    errors.push({
+      stage: "wc2026Cooldown",
+      message: `skipped wc2026 (>${COOLDOWN_FAIL_THRESHOLD} consecutive failures in last ${COOLDOWN_LOOKBACK_MS / 60000}min)`,
+    });
     try {
       apiMatches = await fetchOpenfootballAsWc2026(admin);
       dataSource = "openfootball";
@@ -220,12 +253,29 @@ export async function GET(req: Request) {
       const ofMsg = ofErr instanceof Error ? ofErr.message : String(ofErr);
       errors.push({ stage: "openfootballFallback", message: ofMsg });
       await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
-      // Return 200 OK with error body so cron-job.org doesn't count this as a failure
-      // (which would auto-disable the cronjob after N consecutive 5xx).
       return NextResponse.json(
-        { checked: 0, scored: 0, error: wcMsg, fallbackError: ofMsg },
+        { source: "openfootball", checked: 0, scored: 0, error: ofMsg, cooldown: true },
         { status: 200 },
       );
+    }
+  } else {
+    try {
+      apiMatches = await fetchAllMatches();
+    } catch (wcErr) {
+      const wcMsg = wcErr instanceof Error ? wcErr.message : String(wcErr);
+      errors.push({ stage: "fetchAllMatches", message: wcMsg });
+      try {
+        apiMatches = await fetchOpenfootballAsWc2026(admin);
+        dataSource = "openfootball";
+      } catch (ofErr) {
+        const ofMsg = ofErr instanceof Error ? ofErr.message : String(ofErr);
+        errors.push({ stage: "openfootballFallback", message: ofMsg });
+        await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
+        return NextResponse.json(
+          { checked: 0, scored: 0, error: wcMsg, fallbackError: ofMsg },
+          { status: 200 },
+        );
+      }
     }
   }
 
