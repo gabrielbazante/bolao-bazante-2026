@@ -37,28 +37,49 @@ export default async function HomePage() {
     .eq("status", "live");
   const liveCount = liveFixtures?.length ?? 0;
 
-  // Next upcoming fixture
-  const { data: nextFixtures } = await supabase
+  // Next kickoff time + ALL fixtures sharing it (e.g. 2 games at 16h)
+  const { data: firstNext } = await supabase
     .from("fixtures")
-    .select(
-      "id, kickoff_at, home:home_team_id(id,name_pt,flag_emoji), away:away_team_id(id,name_pt,flag_emoji)"
-    )
+    .select("kickoff_at")
     .gte("kickoff_at", new Date().toISOString())
     .eq("status", "scheduled")
     .order("kickoff_at")
-    .limit(1);
-  const nextFixture = nextFixtures?.[0] ?? null;
+    .limit(1)
+    .maybeSingle();
 
-  // My bet on next fixture
-  let myBet: { home_score: number; away_score: number } | null = null;
-  if (nextFixture) {
-    const { data: bet } = await supabase
-      .from("bets")
-      .select("home_score, away_score")
-      .eq("fixture_id", nextFixture.id)
-      .eq("user_id", user!.id)
-      .maybeSingle();
-    myBet = bet ?? null;
+  let nextFixtures: Array<{
+    id: number;
+    kickoff_at: string;
+    home: { id: number; name_pt: string; flag_emoji: string };
+    away: { id: number; name_pt: string; flag_emoji: string };
+  }> = [];
+  let myBetsByFixture = new Map<number, { home_score: number; away_score: number }>();
+
+  if (firstNext?.kickoff_at) {
+    const { data: sameSlotFixtures } = await supabase
+      .from("fixtures")
+      .select(
+        "id, kickoff_at, home:home_team_id(id,name_pt,flag_emoji), away:away_team_id(id,name_pt,flag_emoji)",
+      )
+      .eq("status", "scheduled")
+      .eq("kickoff_at", firstNext.kickoff_at)
+      .order("id");
+    nextFixtures = (sameSlotFixtures ?? []) as typeof nextFixtures;
+
+    if (nextFixtures.length > 0) {
+      const ids = nextFixtures.map((f) => f.id);
+      const { data: bets } = await supabase
+        .from("bets")
+        .select("fixture_id, home_score, away_score")
+        .eq("user_id", user!.id)
+        .in("fixture_id", ids);
+      myBetsByFixture = new Map(
+        (bets ?? []).map((b) => [
+          b.fixture_id,
+          { home_score: b.home_score, away_score: b.away_score },
+        ]),
+      );
+    }
   }
 
   // Ranking position + my totals (from the ranking view)
@@ -120,12 +141,22 @@ export default async function HomePage() {
           <StatCard value={String(myStats.exact_count)} label="Exatos" />
         </div>
 
-        {/* Next match */}
-        {nextFixture && (
-          <NextMatchCard
-            fixture={nextFixture as any}
-            myBet={myBet}
-          />
+        {/* Próximos jogos (todos do mesmo horário) */}
+        {nextFixtures.length > 0 && (
+          <div className="space-y-2">
+            {nextFixtures.length > 1 && (
+              <p className="px-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {nextFixtures.length} jogos no mesmo horário
+              </p>
+            )}
+            {nextFixtures.map((f) => (
+              <NextMatchCard
+                key={f.id}
+                fixture={f}
+                myBet={myBetsByFixture.get(f.id) ?? null}
+              />
+            ))}
+          </div>
         )}
 
         {/* Live banner */}
