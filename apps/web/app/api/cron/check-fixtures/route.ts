@@ -1,8 +1,65 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllMatches, deriveScoreFields, type Wc2026Match } from "@/lib/wc2026";
+import { fetchWorldCupData, parseKickoff } from "@/lib/openfootball";
+import { EN_TO_PT } from "@/lib/team-aliases";
 import { calculate, type Phase } from "@bolao/scoring";
 import { randomBet } from "@/lib/random-bet";
+
+/**
+ * Fallback: when wc2026 is down/disabled, fetch openfootball and convert each
+ * finished match into the same shape our handler expects (Wc2026Match).
+ * Live in-progress matches don't exist in openfootball — only finals — so this
+ * keeps the scoring pipeline alive but won't update the Ao Vivo tab in real time.
+ */
+async function fetchOpenfootballAsWc2026(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<Wc2026Match[]> {
+  const data = await fetchWorldCupData();
+  const { data: teams } = await admin.from("teams").select("fifa_code, name_pt");
+  const ptToCode = new Map<string, string>(
+    (teams ?? []).map((t) => [t.name_pt.toLowerCase(), t.fifa_code]),
+  );
+
+  const resolveCode = (englishName: string): string => {
+    const pt = EN_TO_PT[englishName];
+    if (pt && ptToCode.has(pt.toLowerCase())) return ptToCode.get(pt.toLowerCase())!;
+    return ptToCode.get(englishName.toLowerCase()) ?? "";
+  };
+
+  const out: Wc2026Match[] = [];
+  for (const m of data.matches) {
+    if (!m.score?.ft) continue; // skip unfinished matches
+    const hasEt = m.score.et != null;
+    const homeCode = resolveCode(m.team1);
+    const awayCode = resolveCode(m.team2);
+    if (!homeCode || !awayCode) continue;
+    const kickoff = parseKickoff(m.date, m.time);
+    out.push({
+      id: 0,
+      match_number: 0,
+      round: m.round,
+      group_name: m.group ?? null,
+      home_team_id: 0,
+      home_team: m.team1,
+      home_team_code: homeCode,
+      away_team_id: 0,
+      away_team: m.team2,
+      away_team_code: awayCode,
+      stadium: m.ground ?? "",
+      stadium_city: "",
+      stadium_country: "",
+      kickoff_utc: kickoff.toISOString(),
+      home_score: hasEt ? m.score.et![0] : m.score.ft[0],
+      away_score: hasEt ? m.score.et![1] : m.score.ft[1],
+      home_pen: m.score.p?.[0] ?? null,
+      away_pen: m.score.p?.[1] ?? null,
+      status: "finished",
+      phase: hasEt ? "AET" : "FT",
+    });
+  }
+  return out;
+}
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -135,15 +192,29 @@ export async function GET(req: Request) {
     });
   }
 
-  // Fetch all matches (1 API call covers everything)
+  // Fetch matches — try wc2026 first, fall back to openfootball if it fails.
+  // openfootball only has final scores (no live updates), but scoring still works.
   let apiMatches: Wc2026Match[];
+  let dataSource: "wc2026" | "openfootball" = "wc2026";
   try {
     apiMatches = await fetchAllMatches();
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    errors.push({ stage: "fetchAllMatches", message: msg });
-    await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
-    return NextResponse.json({ error: msg }, { status: 502 });
+  } catch (wcErr) {
+    const wcMsg = wcErr instanceof Error ? wcErr.message : String(wcErr);
+    errors.push({ stage: "fetchAllMatches", message: wcMsg });
+    try {
+      apiMatches = await fetchOpenfootballAsWc2026(admin);
+      dataSource = "openfootball";
+    } catch (ofErr) {
+      const ofMsg = ofErr instanceof Error ? ofErr.message : String(ofErr);
+      errors.push({ stage: "openfootballFallback", message: ofMsg });
+      await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0, errors });
+      // Return 200 OK with error body so cron-job.org doesn't count this as a failure
+      // (which would auto-disable the cronjob after N consecutive 5xx).
+      return NextResponse.json(
+        { checked: 0, scored: 0, error: wcMsg, fallbackError: ofMsg },
+        { status: 200 },
+      );
+    }
   }
 
   // Build lookup: local teams by fifa_code → id
@@ -246,6 +317,7 @@ export async function GET(req: Request) {
     errors: errors.length ? errors : null,
   });
   return NextResponse.json({
+    source: dataSource,
     checked,
     scored,
     updated,
