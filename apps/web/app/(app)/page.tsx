@@ -64,7 +64,7 @@ export default async function HomePage() {
       .eq("status", "scheduled")
       .eq("kickoff_at", firstNext.kickoff_at)
       .order("id");
-    nextFixtures = (sameSlotFixtures ?? []) as typeof nextFixtures;
+    nextFixtures = (sameSlotFixtures ?? []) as unknown as typeof nextFixtures;
 
     if (nextFixtures.length > 0) {
       const ids = nextFixtures.map((f) => f.id);
