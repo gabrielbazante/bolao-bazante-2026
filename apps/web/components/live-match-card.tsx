@@ -99,14 +99,15 @@ export function LiveMatchCard({ fixture }: Props) {
           boxShadow: "inset 0 -1px 0 rgba(0,0,0,.1)",
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center gap-1">
+        <div className="grid grid-cols-3 items-center">
+          <div className="flex flex-col items-center gap-1 min-w-0 px-1">
             <span className="text-2xl">{fixture.home.flag_emoji}</span>
-            <span className="text-xs font-bold">{fixture.home.name_pt}</span>
+            <span className="text-xs font-bold text-center break-words leading-tight">
+              {fixture.home.name_pt}
+            </span>
           </div>
 
           <div className="flex flex-col items-center">
-            {/* Live indicator */}
             <div className="mb-1 flex items-center gap-1.5">
               <span
                 className="h-2 w-2 rounded-full bg-white"
@@ -119,21 +120,31 @@ export function LiveMatchCard({ fixture }: Props) {
                 Ao Vivo
               </span>
             </div>
-            <span className="font-display text-5xl leading-none">
+            <span className="font-display text-5xl leading-none tabular-nums">
               {homeNow} - {awayNow}
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 min-w-0 px-1">
             <span className="text-2xl">{fixture.away.flag_emoji}</span>
-            <span className="text-xs font-bold">{fixture.away.name_pt}</span>
+            <span className="text-xs font-bold text-center break-words leading-tight">
+              {fixture.away.name_pt}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Bets list */}
+      {/* Bets list — sorted by full_name (pt-BR collation, accent-insensitive) */}
       <ul className="divide-y divide-border p-3">
-        {bets.map((b) => (
+        {[...bets]
+          .sort((a, b) =>
+            (a.profile?.full_name ?? "").localeCompare(
+              b.profile?.full_name ?? "",
+              "pt-BR",
+              { sensitivity: "base" },
+            ),
+          )
+          .map((b) => (
           <li key={b.user_id} className="flex items-center gap-2 py-2">
             <span className="flex-1 text-sm font-semibold text-foreground">
               {b.profile.full_name}
