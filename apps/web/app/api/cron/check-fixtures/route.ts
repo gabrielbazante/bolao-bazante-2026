@@ -172,10 +172,10 @@ function isLivePhase(p: string) {
   return !isFinishedPhase(p) && LIVE_TOKENS.some((t) => p.includes(t));
 }
 const WINDOW_PRE_MS = 5 * 60 * 1000;
-// 4h post-kickoff covers normal matches (~2h), extra time (~2.5h), and most
-// stoppages. Longer interruptions (rare) fall back to manual /admin override.
-// Trimmed from 6h to keep wc2026 quota usage low (~30% reduction).
-const WINDOW_POST_MS = 4 * 60 * 60 * 1000;
+// 6h post-kickoff covers normal matches (~2h), extra time (~2.5h), and the
+// occasional long interruption (saw FRA×IRQ at ~4h with a paused match).
+// Restored after wc2026 quota was bumped to 700/day — comfortable headroom.
+const WINDOW_POST_MS = 6 * 60 * 60 * 1000;
 // Cooldown: if wc2026 fetch failed in 3 consecutive recent runs, skip it for
 // 15 min to avoid wasting quota on a key that's likely still disabled.
 const COOLDOWN_LOOKBACK_MS = 15 * 60 * 1000;
