@@ -4,7 +4,7 @@ import { Info, Trophy } from "lucide-react";
 
 const ROWS = [
   ["Fase de Grupos", 1, 2],
-  ["32avos",         2, 4],
+  ["2ª fase",        2, 4],
   ["Oitavas",        3, 6],
   ["Quartas",        7, 14],
   ["Semi",           15, 30],
