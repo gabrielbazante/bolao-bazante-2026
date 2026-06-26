@@ -93,31 +93,48 @@ export async function GroupsStandings() {
   const anyMatchPlayed = (fixtures ?? []).length > 0;
 
   return (
-    <div
-      className="rounded-2xl bg-card p-4"
+    <details
+      className="group rounded-2xl overflow-hidden bg-card"
       style={{
         boxShadow:
           "0 4px 16px -4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04)",
         border: "1px solid rgba(0,0,0,.05)",
       }}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Tabela dos grupos
-        </p>
-        {anyMatchPlayed && (
-          <div className="flex items-center gap-2 text-[8px] font-semibold text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-sm bg-emerald-500" />
-              <span>Classificado</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-sm bg-amber-500" />
-              <span>Melhor 3º</span>
-            </span>
-          </div>
-        )}
-      </div>
+      <summary className="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 list-none">
+        <div className="flex flex-col">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Tabela dos grupos
+          </p>
+          {anyMatchPlayed && (
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              12 grupos · 48 seleções
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {anyMatchPlayed && (
+            <div className="flex items-center gap-2 text-[8px] font-semibold text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-emerald-500" />
+                <span className="hidden sm:inline">Classificado</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-sm bg-amber-500" />
+                <span className="hidden sm:inline">Melhor 3º</span>
+              </span>
+            </div>
+          )}
+          <svg
+            className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </summary>
+
+      <div className="px-4 pb-4 pt-1">
 
       {!anyMatchPlayed && (
         <p className="py-4 text-center text-xs text-muted-foreground">
@@ -180,6 +197,7 @@ export async function GroupsStandings() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </details>
   );
 }

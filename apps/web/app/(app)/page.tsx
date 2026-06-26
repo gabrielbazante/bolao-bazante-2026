@@ -5,6 +5,7 @@ import { StatCard } from "@/components/ui-pro/stat-card";
 import { LiveBanner } from "@/components/ui-pro/live-banner";
 import { NextMatchCard } from "@/components/ui-pro/next-match-card";
 import { GroupsStandings } from "@/components/groups-standings";
+import { KnockoutBracket } from "@/components/knockout-bracket";
 import Link from "next/link";
 
 export default async function HomePage() {
@@ -238,6 +239,9 @@ export default async function HomePage() {
 
         {/* Tabela dos grupos */}
         <GroupsStandings />
+
+        {/* Chaveamento das próximas fases */}
+        <KnockoutBracket />
       </div>
     </div>
   );
