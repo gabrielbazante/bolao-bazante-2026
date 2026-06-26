@@ -171,9 +171,24 @@ export async function KnockoutBracket() {
     phaseMap.get(r.target_fixture)![r.slot] = r.source;
   }
 
+  const completedGroupCodes = new Set(standings.map((s) => s.group_code));
+
   function resolveSlot(phaseCode: string, fixtureIdx: number, slot: "home" | "away"): { team: Team | null; placeholder: string | null } {
     const source = rulesByPhase.get(phaseCode)?.get(fixtureIdx + 1)?.[slot];
     if (!source) return { team: null, placeholder: null };
+
+    // For "best-third among groups X/Y/Z" tokens, only resolve if EVERY referenced
+    // group has finished. Otherwise we'd pick the wrong team (e.g. the only third-
+    // placed team from a single completed group inside the set).
+    const m3 = /^3([A-L]+)$/.exec(source);
+    if (m3) {
+      const groupCodes = m3[1]!.split("");
+      const allComplete = groupCodes.every((g) => completedGroupCodes.has(g));
+      if (!allComplete) {
+        return { team: null, placeholder: prettifySlot(source) };
+      }
+    }
+
     const teamId = resolveSource(source, standings, winners);
     if (teamId && teamMap.has(teamId)) {
       return { team: teamMap.get(teamId)!, placeholder: null };
