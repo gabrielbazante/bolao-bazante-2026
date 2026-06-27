@@ -181,6 +181,108 @@ const WINDOW_POST_MS = 6 * 60 * 60 * 1000;
 const COOLDOWN_LOOKBACK_MS = 15 * 60 * 1000;
 const COOLDOWN_FAIL_THRESHOLD = 3;
 
+/**
+ * Group-phase standings token ("1A", "2C", ...) per team_code, computed from the
+ * wc2026 group matches we already fetched. Used to map a confirmed R32 pairing to
+ * the right local fixture by its home slot (always an exact group position).
+ */
+function wc2026GroupTokens(apiMatches: Wc2026Match[]): Map<string, string> {
+  type S = { code: string; group: string; pts: number; gd: number; gf: number };
+  const st = new Map<string, S>();
+  const ensure = (code: string, group: string) => {
+    let s = st.get(code);
+    if (!s) { s = { code, group, pts: 0, gd: 0, gf: 0 }; st.set(code, s); }
+    return s;
+  };
+  for (const m of apiMatches) {
+    if (!m.group_name) continue;
+    const h = ensure(m.home_team_code, m.group_name);
+    const a = ensure(m.away_team_code, m.group_name);
+    if (m.home_score == null || m.away_score == null) continue;
+    h.gf += m.home_score; h.gd += m.home_score - m.away_score;
+    a.gf += m.away_score; a.gd += m.away_score - m.home_score;
+    if (m.home_score > m.away_score) h.pts += 3;
+    else if (m.home_score < m.away_score) a.pts += 3;
+    else { h.pts += 1; a.pts += 1; }
+  }
+  const byGroup = new Map<string, S[]>();
+  for (const s of st.values()) {
+    const arr = byGroup.get(s.group) ?? [];
+    arr.push(s); byGroup.set(s.group, arr);
+  }
+  const tokens = new Map<string, string>();
+  for (const [g, arr] of byGroup) {
+    arr.sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf);
+    arr.forEach((s, i) => tokens.set(s.code, `${i + 1}${g}`));
+  }
+  return tokens;
+}
+
+/**
+ * Keep the R32 bracket in sync with wc2026: the source confirms round-of-32
+ * pairings (incl. third-place assignments, via FIFA's official table) as the last
+ * groups settle — often before our own group phase formally closes. Populate any
+ * still-empty R32 fixture as soon as its pairing is confirmed, so the bracket
+ * tracks reality instead of waiting for advance-phase. Matches a confirmed pair to
+ * a fixture via the home slot's exact group token, so it works even while our DB is
+ * still catching up on the final group games. wc2026-only (openfootball has no
+ * pairings). Returns the number of fixtures populated.
+ */
+async function populateR32Pairings(
+  admin: AdminClient,
+  apiMatches: Wc2026Match[],
+  codeToLocalId: Map<string, number>,
+): Promise<number> {
+  const { data: r32Phase } = await admin
+    .from("phases").select("id").eq("code", "r32").single();
+  if (!r32Phase) return 0;
+
+  const { data: fixtures } = await admin
+    .from("fixtures")
+    .select("id, home_team_id, away_team_id")
+    .eq("phase_id", r32Phase.id)
+    .order("id");
+  const missing = new Set(
+    (fixtures ?? [])
+      .filter((f) => f.home_team_id == null || f.away_team_id == null)
+      .map((f) => f.id),
+  );
+  if (missing.size === 0) return 0;
+
+  // slot N = Nth fixture in id order (matches bracket_rules.target_fixture)
+  const slotToFixtureId = new Map<number, number>();
+  (fixtures ?? []).forEach((f, i) => slotToFixtureId.set(i + 1, f.id));
+
+  const { data: rules } = await admin
+    .from("bracket_rules")
+    .select("target_fixture, slot, source")
+    .eq("target_phase", "r32");
+  const homeTokenToSlot = new Map<string, number>();
+  for (const r of rules ?? []) {
+    if (r.slot === "home") homeTokenToSlot.set(r.source, r.target_fixture);
+  }
+
+  const tokenOf = wc2026GroupTokens(apiMatches);
+
+  let populated = 0;
+  for (const m of apiMatches) {
+    if ((m.round ?? "").toUpperCase() !== "R32") continue;
+    const homeId = codeToLocalId.get(m.home_team_code);
+    const awayId = codeToLocalId.get(m.away_team_code);
+    if (!homeId || !awayId) continue; // pairing not confirmed yet
+    const slot = homeTokenToSlot.get(tokenOf.get(m.home_team_code) ?? "");
+    if (!slot) continue;
+    const fixId = slotToFixtureId.get(slot);
+    if (!fixId || !missing.has(fixId)) continue;
+    await admin
+      .from("fixtures")
+      .update({ home_team_id: homeId, away_team_id: awayId })
+      .eq("id", fixId);
+    populated++;
+  }
+  return populated;
+}
+
 export async function GET(req: Request) {
   const expected = `Bearer ${process.env.CRON_SECRET}`;
   if (req.headers.get("authorization") !== expected) {
@@ -224,13 +326,29 @@ export async function GET(req: Request) {
     .lte("kickoff_at", new Date(now + WINDOW_PRE_MS).toISOString());
 
   if (!candidates || candidates.length === 0) {
-    await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0 });
-    return NextResponse.json({
-      checked: 0,
-      scored: 0,
-      skipped: "no fixture in window",
-      autoFilled: autoFillSummary,
-    });
+    // Nothing to score this tick — but still poll wc2026 if the R32 bracket has
+    // unconfirmed pairings to fill (they can resolve upstream before our group
+    // phase closes). Otherwise skip the poll to preserve quota.
+    let r32NeedsFill = false;
+    const { data: r32PhaseRow } = await admin
+      .from("phases").select("id").eq("code", "r32").single();
+    if (r32PhaseRow) {
+      const { count } = await admin
+        .from("fixtures")
+        .select("id", { count: "exact", head: true })
+        .eq("phase_id", r32PhaseRow.id)
+        .or("home_team_id.is.null,away_team_id.is.null");
+      r32NeedsFill = (count ?? 0) > 0;
+    }
+    if (!r32NeedsFill) {
+      await admin.from("cron_runs").insert({ fixtures_checked: 0, fixtures_scored: 0 });
+      return NextResponse.json({
+        checked: 0,
+        scored: 0,
+        skipped: "no fixture in window",
+        autoFilled: autoFillSummary,
+      });
+    }
   }
 
   // Fetch matches — try wc2026 first (unless in cooldown), fall back to
@@ -284,6 +402,19 @@ export async function GET(req: Request) {
   const codeToLocalId = new Map<string, number>();
   for (const t of teams ?? []) codeToLocalId.set(t.fifa_code, t.id);
 
+  // Keep the R32 bracket in sync with confirmed pairings (wc2026 only).
+  let r32Populated = 0;
+  if (dataSource === "wc2026") {
+    try {
+      r32Populated = await populateR32Pairings(admin, apiMatches, codeToLocalId);
+    } catch (e) {
+      errors.push({
+        stage: "populateR32Pairings",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   let checked = 0;
   let scored = 0;
   let updated = 0;
@@ -293,7 +424,7 @@ export async function GET(req: Request) {
     const awayId = codeToLocalId.get(m.away_team_code);
     if (!homeId || !awayId) continue;
 
-    const local = candidates.find(
+    const local = (candidates ?? []).find(
       (c) => c.home_team_id === homeId && c.away_team_id === awayId,
     );
     if (!local) continue; // not in our smart-poll window
@@ -383,6 +514,7 @@ export async function GET(req: Request) {
     checked,
     scored,
     updated,
+    r32Populated,
     errors: errors.length,
     autoFilled: autoFillSummary,
   });
