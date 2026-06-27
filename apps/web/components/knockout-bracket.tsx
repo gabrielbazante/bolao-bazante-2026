@@ -147,18 +147,28 @@ export async function KnockoutBracket() {
     arr.push(f);
     fixturesByPhase.set(f.phase_id, arr);
   }
+  // Bracket "slot" number = the fixture's position when its phase is ordered by id.
+  // Fixtures were seeded id-ascending in slot order (101..116 = slots 1..16), and
+  // bracket_rules.target_fixture refers to that slot — NOT to kickoff order, which
+  // diverges once real kickoff times load. Always resolve rules by slot, not display order.
+  const slotOf = new Map<number, number>();
+  for (const arr of fixturesByPhase.values()) {
+    [...arr].sort((a, b) => a.id - b.id).forEach((f, i) => slotOf.set(f.id, i + 1));
+  }
+
   const winners = new Map<string, number>();
   for (const phase of phases as Phase[]) {
     const arr = fixturesByPhase.get(phase.id) ?? [];
-    arr.forEach((f, idx) => {
+    arr.forEach((f) => {
       const realH = f.home_score_et ?? f.home_score_ft;
       const realA = f.away_score_et ?? f.away_score_ft;
       if (realH == null || realA == null || realH === realA) return;
       const winnerId = realH > realA ? f.home_team_id! : f.away_team_id!;
       const loserId = realH > realA ? f.away_team_id! : f.home_team_id!;
       const tag = phase.code.toUpperCase();
-      winners.set(`${tag}_${idx + 1}`, winnerId);
-      if (phase.code === "sf") winners.set(`L_SF_${idx + 1}`, loserId);
+      const slot = slotOf.get(f.id)!;
+      winners.set(`${tag}_${slot}`, winnerId);
+      if (phase.code === "sf") winners.set(`L_SF_${slot}`, loserId);
     });
   }
 
@@ -171,22 +181,17 @@ export async function KnockoutBracket() {
     phaseMap.get(r.target_fixture)![r.slot] = r.source;
   }
 
-  const completedGroupCodes = new Set(standings.map((s) => s.group_code));
-
   function resolveSlot(phaseCode: string, fixtureIdx: number, slot: "home" | "away"): { team: Team | null; placeholder: string | null } {
     const source = rulesByPhase.get(phaseCode)?.get(fixtureIdx + 1)?.[slot];
     if (!source) return { team: null, placeholder: null };
 
-    // For "best-third among groups X/Y/Z" tokens, only resolve if EVERY referenced
-    // group has finished. Otherwise we'd pick the wrong team (e.g. the only third-
-    // placed team from a single completed group inside the set).
-    const m3 = /^3([A-L]+)$/.exec(source);
-    if (m3) {
-      const groupCodes = m3[1]!.split("");
-      const allComplete = groupCodes.every((g) => completedGroupCodes.has(g));
-      if (!allComplete) {
-        return { team: null, placeholder: prettifySlot(source) };
-      }
+    // Third-place slots ("3ABCDF") can't be resolved by a local best-third pick:
+    // FIFA assigns the 8 qualifying thirds to matches via a fixed combination table,
+    // not "highest-ranked third in the subset". The correct team is only known once
+    // advance-phase populates the fixture from wc2026 (which applies that table), so
+    // show a placeholder until then rather than guess wrong.
+    if (/^3[A-L]+$/.test(source)) {
+      return { team: null, placeholder: prettifySlot(source) };
     }
 
     const teamId = resolveSource(source, standings, winners);
@@ -258,13 +263,15 @@ export async function KnockoutBracket() {
                   let away = f.away_team_id ? teamMap.get(f.away_team_id) ?? null : null;
                   let homePlaceholder: string | null = null;
                   let awayPlaceholder: string | null = null;
-                  // Fallback: resolve from current standings/winners
+                  // Fallback: resolve from current standings/winners — by bracket SLOT
+                  // (id order), never by kickoff/display order.
+                  const slotIdx = slotOf.get(f.id)! - 1;
                   if (!home) {
-                    const r = resolveSlot(phase.code, idx, "home");
+                    const r = resolveSlot(phase.code, slotIdx, "home");
                     home = r.team; homePlaceholder = r.placeholder;
                   }
                   if (!away) {
-                    const r = resolveSlot(phase.code, idx, "away");
+                    const r = resolveSlot(phase.code, slotIdx, "away");
                     away = r.team; awayPlaceholder = r.placeholder;
                   }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchGroupStandings } from "@/lib/wc2026";
+import { fetchGroupStandings, fetchAllMatches } from "@/lib/wc2026";
 import { resolveSource } from "@/lib/advance-phase";
 import { championBonus } from "@bolao/scoring";
 import { notifyAllApproved } from "@/lib/notify";
@@ -44,6 +44,36 @@ async function fetchAllStandings(admin: AdminClient): Promise<Standing[]> {
     });
   }
   return allStandings;
+}
+
+/**
+ * Actual R32 pairings as reported by wc2026, keyed teamId -> opponent teamId.
+ * Used to get the THIRD-PLACE assignment right: FIFA maps the 8 qualifying thirds
+ * to round-of-32 matches via a fixed combination table, NOT "best third among a
+ * subset" — so we trust the source instead of reimplementing that table. Returns
+ * null if the API is unavailable (caller falls back to the local heuristic).
+ */
+async function fetchR32Partners(admin: AdminClient): Promise<Map<number, number> | null> {
+  const { data: teams } = await admin.from("teams").select("id, fifa_code");
+  const codeToLocalId = new Map(
+    (teams ?? []).map((t: { id: number; fifa_code: string }) => [t.fifa_code, t.id]),
+  );
+  let matches;
+  try {
+    matches = await fetchAllMatches();
+  } catch {
+    return null;
+  }
+  const partners = new Map<number, number>();
+  for (const m of matches) {
+    if ((m.round ?? "").toUpperCase() !== "R32") continue;
+    const h = codeToLocalId.get(m.home_team_code) as number | undefined;
+    const a = codeToLocalId.get(m.away_team_code) as number | undefined;
+    if (!h || !a) continue;
+    partners.set(h, a);
+    partners.set(a, h);
+  }
+  return partners;
 }
 
 export async function GET(req: Request) {
@@ -113,11 +143,14 @@ export async function GET(req: Request) {
     const phaseRow = phases!.find((p: { id: number }) => p.id === pf.phase_id)!;
     if (phaseRow.code === "group") continue;
     const phaseLabel = phaseRow.code.toUpperCase();
+    // Ordinal = bracket slot = position in id order (NOT kickoff order, which
+    // diverges from slot order once real kickoff times load). W_R32_n etc. reference
+    // this slot number, matching bracket_rules.target_fixture.
     const { data: siblings } = await admin
       .from("fixtures")
       .select("id")
       .eq("phase_id", pf.phase_id)
-      .order("kickoff_at");
+      .order("id");
     const ordinal = (siblings ?? []).findIndex((s: { id: number }) => s.id === pf.id) + 1;
     const home = pf.home_score_et ?? pf.home_score_ft ?? 0;
     const away = pf.away_score_et ?? pf.away_score_ft ?? 0;
@@ -131,22 +164,47 @@ export async function GET(req: Request) {
     .from("bracket_rules")
     .select("*")
     .eq("target_phase", nextCode);
+  // Order by id: bracket_rules.target_fixture N maps to the Nth fixture in id/slot
+  // order (101..116 = slots 1..16), NOT kickoff order.
   const { data: nextFixtures } = await admin
     .from("fixtures")
     .select("id, kickoff_at")
     .eq("phase_id", nextPhase.id)
-    .order("kickoff_at");
+    .order("id");
 
+  // For R32, get the real pairings from wc2026 so third-place slots are assigned
+  // per FIFA's official combination table (the API already applies it). null = API
+  // down → fall back to the local best-third heuristic in resolveSource.
+  const r32Partners = nextCode === "r32" ? await fetchR32Partners(admin) : null;
+
+  const bySlot = new Map<number, { home?: string; away?: string }>();
   for (const rule of rules ?? []) {
-    const fixId = nextFixtures![rule.target_fixture - 1]?.id;
-    if (!fixId) continue;
-    const teamId = resolveSource(rule.source, standings, winners);
-    if (!teamId) continue;
-    const col = rule.slot === "home" ? "home_team_id" : "away_team_id";
-    await admin.from("fixtures").update({ [col]: teamId }).eq("id", fixId);
+    const entry = bySlot.get(rule.target_fixture) ?? {};
+    entry[rule.slot as "home" | "away"] = rule.source;
+    bySlot.set(rule.target_fixture, entry);
   }
 
-  const earliest = nextFixtures?.[0];
+  for (const [slot, srcs] of bySlot) {
+    const fixId = nextFixtures![slot - 1]?.id;
+    if (!fixId) continue;
+    const homeId = srcs.home ? resolveSource(srcs.home, standings, winners) : null;
+    let awayId = srcs.away ? resolveSource(srcs.away, standings, winners) : null;
+    // The home slot is always an exact group position (1X/2X), so it resolves
+    // reliably; take the real opponent (incl. the correct third) from wc2026.
+    if (r32Partners && homeId) {
+      const partner = r32Partners.get(homeId);
+      if (partner) awayId = partner;
+    }
+    if (homeId) await admin.from("fixtures").update({ home_team_id: homeId }).eq("id", fixId);
+    if (awayId) await admin.from("fixtures").update({ away_team_id: awayId }).eq("id", fixId);
+  }
+
+  // closes_at is driven by the earliest kickoff, which (post re-time) need not be
+  // the slot-1 fixture — pick the true minimum.
+  const earliest = (nextFixtures ?? []).reduce<{ kickoff_at: string } | undefined>(
+    (min, f) => (!min || f.kickoff_at < min.kickoff_at ? f : min),
+    undefined,
+  );
   if (earliest) {
     const closesAt = new Date(
       new Date(earliest.kickoff_at).getTime() - 10 * 60 * 1000,
