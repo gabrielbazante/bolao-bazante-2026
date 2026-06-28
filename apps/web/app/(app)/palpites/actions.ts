@@ -1,6 +1,8 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { randomBet } from "@/lib/random-bet";
+import { buildEffectiveRatings } from "@/lib/team-ratings";
+import { NEUTRAL_RATING } from "@/lib/team-strength";
 import { revalidatePath } from "next/cache";
 
 export async function saveBet(fixtureId: number, home: number, away: number) {
@@ -43,10 +45,12 @@ export async function fillRandomBets() {
 
   const { data: fixtures } = await supabase
     .from("fixtures")
-    .select("id")
+    .select("id, home_team_id, away_team_id")
     .eq("phase_id", openPhase.id)
     .not("home_team_id", "is", null)
     .not("away_team_id", "is", null);
+
+  const ratings = await buildEffectiveRatings(supabase);
 
   const { data: existing } = await supabase
     .from("bets")
@@ -57,7 +61,10 @@ export async function fillRandomBets() {
   const toInsert = (fixtures ?? [])
     .filter(f => !alreadyBet.has(f.id))
     .map(f => {
-      const r = randomBet();
+      const r = randomBet(
+        ratings.get(f.home_team_id!) ?? NEUTRAL_RATING,
+        ratings.get(f.away_team_id!) ?? NEUTRAL_RATING,
+      );
       return {
         user_id: user.id,
         fixture_id: f.id,
