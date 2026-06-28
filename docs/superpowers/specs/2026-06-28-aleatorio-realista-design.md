@@ -75,6 +75,11 @@ effectiveRating = base + delta
 
 Assinatura passa a `randomBet(forcaCasa: number, forcaFora: number)`. Pura e testável.
 
+**Sem fator casa.** Em mata-mata o "mando" é apenas a posição no chaveamento, não vantagem
+real de estádio (Copa em sedes neutras; a torcida de alguns times existe mas não é modelada).
+`casa`/`fora` são só rótulos dos dois lados do palpite: com forças iguais `e=0.5` e as
+probabilidades ficam simétricas. O resultado depende exclusivamente da diferença de força.
+
 ### 5.1 Probabilidade de resultado (estilo Elo)
 
 ```
