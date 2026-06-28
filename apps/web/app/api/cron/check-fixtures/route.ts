@@ -5,6 +5,8 @@ import { fetchWorldCupData, parseKickoff } from "@/lib/openfootball";
 import { EN_TO_PT } from "@/lib/team-aliases";
 import { calculate, type Phase } from "@bolao/scoring";
 import { randomBet } from "@/lib/random-bet";
+import { buildEffectiveRatings } from "@/lib/team-ratings";
+import { NEUTRAL_RATING } from "@/lib/team-strength";
 
 /**
  * Returns true if wc2026 should be skipped this tick because it failed in
@@ -110,10 +112,12 @@ async function autoFillExpiredPhases(admin: AdminClient) {
   if (!users || users.length === 0) return { filled: 0, phases: expired.length };
 
   let totalFilled = 0;
+  const ratings = await buildEffectiveRatings(admin);
+
   for (const phase of expired) {
     const { data: fixtures } = await admin
       .from("fixtures")
-      .select("id")
+      .select("id, home_team_id, away_team_id")
       .eq("phase_id", phase.id)
       .not("home_team_id", "is", null)
       .not("away_team_id", "is", null);
@@ -137,7 +141,10 @@ async function autoFillExpiredPhases(admin: AdminClient) {
     for (const u of users) {
       for (const f of fixtures) {
         if (taken.has(`${u.id}|${f.id}`)) continue;
-        const r = randomBet();
+        const r = randomBet(
+          ratings.get(f.home_team_id!) ?? NEUTRAL_RATING,
+          ratings.get(f.away_team_id!) ?? NEUTRAL_RATING,
+        );
         toInsert.push({
           user_id: u.id,
           fixture_id: f.id,
