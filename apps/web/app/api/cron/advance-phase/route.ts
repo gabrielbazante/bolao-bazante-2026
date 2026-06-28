@@ -174,7 +174,7 @@ export async function GET(req: Request) {
 
   // For R32, get the real pairings from wc2026 so third-place slots are assigned
   // per FIFA's official combination table (the API already applies it). null = API
-  // down → fall back to the local best-third heuristic in resolveSource.
+  // down → third-place slots stay empty until the bracket sync can confirm them.
   const r32Partners = nextCode === "r32" ? await fetchR32Partners(admin) : null;
 
   const bySlot = new Map<number, { home?: string; away?: string }>();
@@ -187,13 +187,20 @@ export async function GET(req: Request) {
   for (const [slot, srcs] of bySlot) {
     const fixId = nextFixtures![slot - 1]?.id;
     if (!fixId) continue;
+    // Home slot is always an exact group position (1X/2X) → resolves reliably.
     const homeId = srcs.home ? resolveSource(srcs.home, standings, winners) : null;
-    let awayId = srcs.away ? resolveSource(srcs.away, standings, winners) : null;
-    // The home slot is always an exact group position (1X/2X), so it resolves
-    // reliably; take the real opponent (incl. the correct third) from wc2026.
-    if (r32Partners && homeId) {
-      const partner = r32Partners.get(homeId);
-      if (partner) awayId = partner;
+    let awayId: number | null = null;
+    if (srcs.away) {
+      const awayIsThird = /^3[A-L]+$/.test(srcs.away);
+      const partner = r32Partners && homeId ? r32Partners.get(homeId) ?? null : null;
+      if (partner) {
+        awayId = partner; // confirmed pairing from wc2026 (incl. the correct third)
+      } else if (!awayIsThird) {
+        awayId = resolveSource(srcs.away, standings, winners); // exact slot (2X / winner)
+      }
+      // Third-place + not yet confirmed by wc2026 → leave null rather than guess
+      // (FIFA's combination table isn't reproduced locally). The check-fixtures
+      // bracket sync fills it as soon as wc2026 publishes the assignment.
     }
     if (homeId) await admin.from("fixtures").update({ home_team_id: homeId }).eq("id", fixId);
     if (awayId) await admin.from("fixtures").update({ away_team_id: awayId }).eq("id", fixId);

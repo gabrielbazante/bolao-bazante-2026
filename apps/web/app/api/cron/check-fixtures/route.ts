@@ -267,11 +267,24 @@ async function populateR32Pairings(
   let populated = 0;
   for (const m of apiMatches) {
     if ((m.round ?? "").toUpperCase() !== "R32") continue;
-    const homeId = codeToLocalId.get(m.home_team_code);
-    const awayId = codeToLocalId.get(m.away_team_code);
-    if (!homeId || !awayId) continue; // pairing not confirmed yet
-    const slot = homeTokenToSlot.get(tokenOf.get(m.home_team_code) ?? "");
+    const aId = codeToLocalId.get(m.home_team_code);
+    const bId = codeToLocalId.get(m.away_team_code);
+    if (!aId || !bId) continue; // pairing not confirmed yet
+
+    // Orient to OUR bracket: the home slot is always an exact group position, so
+    // whichever side carries that token is our home and the other is our away.
+    // wc2026's own home/away orientation for third-place matches isn't always
+    // consistent with ours, so anchor on the exact token rather than trust it.
+    let slot = homeTokenToSlot.get(tokenOf.get(m.home_team_code) ?? "");
+    let homeId = aId;
+    let awayId = bId;
+    if (!slot) {
+      slot = homeTokenToSlot.get(tokenOf.get(m.away_team_code) ?? "");
+      homeId = bId;
+      awayId = aId;
+    }
     if (!slot) continue;
+
     const fixId = slotToFixtureId.get(slot);
     if (!fixId || !missing.has(fixId)) continue;
     await admin
