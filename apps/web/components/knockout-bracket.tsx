@@ -220,7 +220,7 @@ export async function KnockoutBracket() {
     if (teamId && teamMap.has(teamId)) {
       return { team: teamMap.get(teamId)!, placeholder: null };
     }
-    return { team: null, placeholder: prettifySlot(source) };
+    return { team: null, placeholder: describeSlot(source) };
   }
 
   return (
