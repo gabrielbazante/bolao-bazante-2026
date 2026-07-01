@@ -181,6 +181,26 @@ export async function KnockoutBracket() {
     phaseMap.get(r.target_fixture)![r.slot] = r.source;
   }
 
+  // slot → fixture lookup per phase code, to describe "W_..." placeholders as the
+  // actual feeder game ("V(Time A/Time B)") once that game's teams are known.
+  const fixtureBySlot = new Map<string, Map<number, Fixture>>();
+  for (const phase of phases as Phase[]) {
+    const m = new Map<number, Fixture>();
+    for (const f of fixturesByPhase.get(phase.id) ?? []) m.set(slotOf.get(f.id)!, f);
+    fixtureBySlot.set(phase.code, m);
+  }
+
+  function describeSlot(src: string): string {
+    const mw = /^W_(R32|R16|QF|SF)_(\d+)$/.exec(src);
+    if (mw) {
+      const f = fixtureBySlot.get(mw[1]!.toLowerCase())?.get(Number(mw[2]!));
+      const h = f?.home_team_id ? teamMap.get(f.home_team_id) : null;
+      const a = f?.away_team_id ? teamMap.get(f.away_team_id) : null;
+      if (h && a) return `V(${h.name_pt}/${a.name_pt})`;
+    }
+    return prettifySlot(src);
+  }
+
   function resolveSlot(phaseCode: string, fixtureIdx: number, slot: "home" | "away"): { team: Team | null; placeholder: string | null } {
     const source = rulesByPhase.get(phaseCode)?.get(fixtureIdx + 1)?.[slot];
     if (!source) return { team: null, placeholder: null };
@@ -191,7 +211,7 @@ export async function KnockoutBracket() {
     // advance-phase populates the fixture from wc2026 (which applies that table), so
     // show a placeholder until then rather than guess wrong.
     if (/^3[A-L]+$/.test(source)) {
-      return { team: null, placeholder: prettifySlot(source) };
+      return { team: null, placeholder: describeSlot(source) };
     }
 
     const teamId = resolveSource(source, standings, winners);
