@@ -196,7 +196,9 @@ export async function KnockoutBracket() {
       const f = fixtureBySlot.get(mw[1]!.toLowerCase())?.get(Number(mw[2]!));
       const h = f?.home_team_id ? teamMap.get(f.home_team_id) : null;
       const a = f?.away_team_id ? teamMap.get(f.away_team_id) : null;
-      if (h && a) return `V(${h.name_pt}/${a.name_pt})`;
+      // Feeder game not yet decided → show the two flags of the possible qualifiers
+      // (compact: e.g. "🇵🇹/🇭🇷" = winner of Portugal vs Croácia).
+      if (h && a) return `${h.flag_emoji}/${a.flag_emoji}`;
     }
     return prettifySlot(src);
   }
