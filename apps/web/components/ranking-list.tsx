@@ -53,7 +53,15 @@ function MedalBadge({ pos }: { pos: number }) {
   );
 }
 
-export function RankingList({ initial, myId }: { initial: Row[]; myId: string }) {
+export function RankingList({
+  initial,
+  myId,
+  championFlags,
+}: {
+  initial: Row[];
+  myId: string;
+  championFlags: Record<string, string[]>;
+}) {
   const [rows, setRows] = useState(initial);
 
   useEffect(() => {
@@ -158,10 +166,21 @@ export function RankingList({ initial, myId }: { initial: Row[]; myId: string })
               )}
             </div>
 
-            {/* Name */}
-            <span className="flex-1 truncate text-sm font-semibold">
-              {me ? "Você" : r.full_name}
-            </span>
+            {/* Name + champion picks */}
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <span className="truncate text-sm font-semibold">
+                {me ? "Você" : r.full_name}
+              </span>
+              {championFlags[r.id]?.length ? (
+                <span
+                  className="shrink-0 text-base leading-none"
+                  title="Seleções escolhidas para campeã"
+                  aria-label="Seleções escolhidas para campeã"
+                >
+                  {championFlags[r.id]!.join(" ")}
+                </span>
+              ) : null}
+            </div>
 
             {/* Points */}
             <span
