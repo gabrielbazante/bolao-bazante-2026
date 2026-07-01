@@ -60,7 +60,7 @@ export function RankingList({
 }: {
   initial: Row[];
   myId: string;
-  championFlags: Record<string, string[]>;
+  championFlags: Record<string, { flag: string; out: boolean }[]>;
 }) {
   const [rows, setRows] = useState(initial);
 
@@ -173,11 +173,18 @@ export function RankingList({
               </span>
               {championFlags[r.id]?.length ? (
                 <span
-                  className="shrink-0 text-base leading-none"
-                  title="Seleções escolhidas para campeã"
+                  className="flex shrink-0 items-center gap-1"
+                  title="Seleções escolhidas para campeã (escurecida = eliminada)"
                   aria-label="Seleções escolhidas para campeã"
                 >
-                  {championFlags[r.id]!.join(" ")}
+                  {championFlags[r.id]!.map((c, idx) => (
+                    <span
+                      key={idx}
+                      className={`text-base leading-none ${c.out ? "opacity-30 grayscale" : ""}`}
+                    >
+                      {c.flag}
+                    </span>
+                  ))}
                 </span>
               ) : null}
             </div>

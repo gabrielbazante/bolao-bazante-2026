@@ -190,22 +190,22 @@ export async function KnockoutBracket() {
     fixtureBySlot.set(phase.code, m);
   }
 
-  function describeSlot(src: string): string {
+  // When a slot's feeder game is known but undecided, return its two teams so we can
+  // show their flags at full size ("one of these two qualifies"). null → use text label.
+  function feederTeams(src: string): Team[] | null {
     const mw = /^W_(R32|R16|QF|SF)_(\d+)$/.exec(src);
     if (mw) {
       const f = fixtureBySlot.get(mw[1]!.toLowerCase())?.get(Number(mw[2]!));
       const h = f?.home_team_id ? teamMap.get(f.home_team_id) : null;
       const a = f?.away_team_id ? teamMap.get(f.away_team_id) : null;
-      // Feeder game not yet decided → show the two flags of the possible qualifiers
-      // (compact: e.g. "🇵🇹/🇭🇷" = winner of Portugal vs Croácia).
-      if (h && a) return `${h.flag_emoji}/${a.flag_emoji}`;
+      if (h && a) return [h, a];
     }
-    return prettifySlot(src);
+    return null;
   }
 
-  function resolveSlot(phaseCode: string, fixtureIdx: number, slot: "home" | "away"): { team: Team | null; placeholder: string | null } {
+  function resolveSlot(phaseCode: string, fixtureIdx: number, slot: "home" | "away"): { team: Team | null; placeholder: string | null; feeders: Team[] | null } {
     const source = rulesByPhase.get(phaseCode)?.get(fixtureIdx + 1)?.[slot];
-    if (!source) return { team: null, placeholder: null };
+    if (!source) return { team: null, placeholder: null, feeders: null };
 
     // Third-place slots ("3ABCDF") can't be resolved by a local best-third pick:
     // FIFA assigns the 8 qualifying thirds to matches via a fixed combination table,
@@ -213,14 +213,19 @@ export async function KnockoutBracket() {
     // advance-phase populates the fixture from wc2026 (which applies that table), so
     // show a placeholder until then rather than guess wrong.
     if (/^3[A-L]+$/.test(source)) {
-      return { team: null, placeholder: describeSlot(source) };
+      return { team: null, placeholder: prettifySlot(source), feeders: null };
     }
 
     const teamId = resolveSource(source, standings, winners);
     if (teamId && teamMap.has(teamId)) {
-      return { team: teamMap.get(teamId)!, placeholder: null };
+      return { team: teamMap.get(teamId)!, placeholder: null, feeders: null };
     }
-    return { team: null, placeholder: describeSlot(source) };
+    // Undecided: show the two possible qualifiers' flags if the feeder game is known,
+    // else a short text label.
+    const feeders = feederTeams(source);
+    return feeders
+      ? { team: null, placeholder: null, feeders }
+      : { team: null, placeholder: prettifySlot(source), feeders: null };
   }
 
   return (
@@ -285,16 +290,18 @@ export async function KnockoutBracket() {
                   let away = f.away_team_id ? teamMap.get(f.away_team_id) ?? null : null;
                   let homePlaceholder: string | null = null;
                   let awayPlaceholder: string | null = null;
+                  let homeFeeders: Team[] | null = null;
+                  let awayFeeders: Team[] | null = null;
                   // Fallback: resolve from current standings/winners — by bracket SLOT
                   // (id order), never by kickoff/display order.
                   const slotIdx = slotOf.get(f.id)! - 1;
                   if (!home) {
                     const r = resolveSlot(phase.code, slotIdx, "home");
-                    home = r.team; homePlaceholder = r.placeholder;
+                    home = r.team; homePlaceholder = r.placeholder; homeFeeders = r.feeders;
                   }
                   if (!away) {
                     const r = resolveSlot(phase.code, slotIdx, "away");
-                    away = r.team; awayPlaceholder = r.placeholder;
+                    away = r.team; awayPlaceholder = r.placeholder; awayFeeders = r.feeders;
                   }
 
                   const realH = f.home_score_et ?? f.home_score_ft;
@@ -311,6 +318,7 @@ export async function KnockoutBracket() {
                   const side = (
                     team: Team | null,
                     placeholder: string | null,
+                    feeders: Team[] | null,
                     won: boolean,
                     lost: boolean,
                     align: "left" | "right",
@@ -324,6 +332,13 @@ export async function KnockoutBracket() {
                         <>
                           <span className="text-xl leading-none shrink-0">{team.flag_emoji}</span>
                           <span className="truncate text-[11px]">{team.name_pt}</span>
+                        </>
+                      ) : feeders ? (
+                        // Two possible qualifiers — full-size flags, same as decided teams.
+                        <>
+                          <span className="text-xl leading-none shrink-0">{feeders[0]!.flag_emoji}</span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">/</span>
+                          <span className="text-xl leading-none shrink-0">{feeders[1]!.flag_emoji}</span>
                         </>
                       ) : (
                         <>
@@ -344,7 +359,7 @@ export async function KnockoutBracket() {
                         #{idx + 1} · {dateStr}
                       </p>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                        {side(home, homePlaceholder, homeWon, !!hasScore && !homeWon, "left")}
+                        {side(home, homePlaceholder, homeFeeders, homeWon, !!hasScore && !homeWon, "left")}
                         {hasScore ? (
                           <span className="font-display text-base text-primary tabular-nums whitespace-nowrap">
                             {realH} - {realA}
@@ -354,7 +369,7 @@ export async function KnockoutBracket() {
                             vs
                           </span>
                         )}
-                        {side(away, awayPlaceholder, awayWon, !!hasScore && !awayWon, "right")}
+                        {side(away, awayPlaceholder, awayFeeders, awayWon, !!hasScore && !awayWon, "right")}
                       </div>
                     </li>
                   );
