@@ -39,14 +39,15 @@ export async function fillRandomBets() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authed");
 
-  const { data: openPhase } = await supabase
-    .from("phases").select("id").eq("status", "open").maybeSingle();
-  if (!openPhase) return { filled: 0, skipped: 0 };
+  // Pode haver mais de uma fase aberta ao mesmo tempo (ex.: 3º lugar + final).
+  const { data: openPhases } = await supabase
+    .from("phases").select("id").eq("status", "open");
+  if (!openPhases || openPhases.length === 0) return { filled: 0, skipped: 0 };
 
   const { data: fixtures } = await supabase
     .from("fixtures")
     .select("id, home_team_id, away_team_id")
-    .eq("phase_id", openPhase.id)
+    .in("phase_id", openPhases.map((p) => p.id))
     .not("home_team_id", "is", null)
     .not("away_team_id", "is", null);
 

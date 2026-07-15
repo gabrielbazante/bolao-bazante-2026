@@ -48,18 +48,22 @@ export default async function AdminPage() {
   // Quem ainda não palpitou na fase aberta. Usa admin client porque a RLS de `bets`
   // só deixa cada um ler os próprios palpites (esta página já é admin-gated).
   const admin = createAdminClient();
-  const { data: openPhase } = await admin
+  // Pode haver mais de uma fase aberta (ex.: 3º lugar + final). Combinamos os
+  // jogos de todas as fases abertas: "falta" quem não preencheu tudo.
+  const { data: openPhases } = await admin
     .from("phases")
     .select("id, name, closes_at")
     .eq("status", "open")
-    .maybeSingle();
+    .order("order_idx");
+  const hasOpen = (openPhases ?? []).length > 0;
 
   let missingBettors: { id: string; name: string; count: number }[] = [];
   let approvedCount = 0;
   let phaseFixtureCount = 0;
-  if (openPhase) {
+  if (hasOpen) {
+    const openIds = (openPhases ?? []).map((p: { id: number }) => p.id);
     const [{ data: phaseFixtures }, { data: approved }] = await Promise.all([
-      admin.from("fixtures").select("id").eq("phase_id", openPhase.id),
+      admin.from("fixtures").select("id").in("phase_id", openIds),
       admin.from("profiles").select("id, full_name").not("approved_at", "is", null),
     ]);
     const fixtureIds = (phaseFixtures ?? []).map((f: { id: number }) => f.id);
@@ -82,8 +86,13 @@ export default async function AdminPage() {
       .sort((a, b) => a.count - b.count || a.name.localeCompare(b.name));
   }
   const doneCount = approvedCount - missingBettors.length;
-  const closesLabel = openPhase?.closes_at
-    ? new Date(openPhase.closes_at).toLocaleString("pt-BR", {
+  const openPhaseNames = (openPhases ?? []).map((p: { name: string }) => p.name).join(" + ");
+  const earliestCloses = (openPhases ?? [])
+    .map((p: { closes_at: string | null }) => p.closes_at)
+    .filter((c): c is string => !!c)
+    .sort()[0];
+  const closesLabel = earliestCloses
+    ? new Date(earliestCloses).toLocaleString("pt-BR", {
         timeZone: "America/Sao_Paulo",
         day: "2-digit",
         month: "2-digit",
@@ -104,7 +113,7 @@ export default async function AdminPage() {
             Quem falta palpitar
           </h2>
 
-          {!openPhase ? (
+          {!hasOpen ? (
             <div
               className="flex flex-col items-center gap-2 rounded-2xl bg-card py-8 text-center"
               style={{
@@ -117,8 +126,7 @@ export default async function AdminPage() {
           ) : (
             <>
               <p className="mb-3 text-sm text-muted-foreground">
-                Fase{" "}
-                <span className="font-semibold text-foreground">{openPhase.name}</span>
+                <span className="font-semibold text-foreground">{openPhaseNames}</span>
                 {closesLabel ? <> · trava {closesLabel}</> : null} ·{" "}
                 <span className="font-semibold text-foreground">
                   {doneCount}/{approvedCount}
